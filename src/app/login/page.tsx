@@ -38,11 +38,15 @@ export default function LoginPage() {
         setError(error.message)
         setLoading(false)
       } else {
-        setSuccess('Account created! Check your email to confirm, then sign in.')
-        setLoading(false)
-        setMode('signin')
-        setPassword('')
-        setConfirmPassword('')
+        // Auto sign in after signup
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+        if (signInError) {
+          setSuccess('Account created! Please sign in.')
+          setMode('signin')
+          setLoading(false)
+        } else {
+          router.push('/dashboard')
+        }
       }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
@@ -59,7 +63,7 @@ export default function LoginPage() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: 'https://comply-ae.vercel.app/dashboard',
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     })
   }
@@ -68,7 +72,7 @@ export default function LoginPage() {
     await supabase.auth.signInWithOAuth({
       provider: 'apple',
       options: {
-        redirectTo: 'https://comply-ae.vercel.app/dashboard',
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     })
   }
