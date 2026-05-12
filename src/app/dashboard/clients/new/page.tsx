@@ -29,13 +29,21 @@ export default function NewClientPage() {
     setLoading(true)
     setError('')
 
-    const { error } = await supabase.from('clients').insert([form])
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { router.push('/login'); return }
+
+    const { error } = await supabase.from('clients').insert([{
+      ...form,
+      user_id: user.id,
+      status: 'pending',
+      risk_level: 'low',
+    }])
 
     if (error) {
       setError(error.message)
       setLoading(false)
     } else {
-      router.push('/dashboard')
+      router.push('/dashboard/clients')
     }
   }
 
