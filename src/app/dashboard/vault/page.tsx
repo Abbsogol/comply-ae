@@ -192,7 +192,7 @@ export default function VaultPage() {
     <div style={{ padding: '40px 32px' }}>
       {/* Header */}
       <div style={{ marginBottom: '32px' }}>
-        <h2 style={{ color: '#ffffff', fontSize: '28px', fontWeight: '700', margin: '0 0 4px 0' }}>5-Year Records Vault</h2>
+        <h2 style={{ color: '#ffffff', fontSize: '28px', fontWeight: '700', margin: '0 0 4px 0', fontFamily: 'var(--font-playfair), Georgia, serif' }}>5-Year Records Vault</h2>
         <p style={{ color: '#8888aa', fontSize: '14px', margin: 0 }}>
           UAE AML Law — mandatory 5-year record retention tracker
         </p>

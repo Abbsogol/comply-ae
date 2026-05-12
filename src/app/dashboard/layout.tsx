@@ -57,7 +57,7 @@ function SidebarContent() {
       <div style={{ padding: '28px 24px 24px', borderBottom: `1px solid ${BORDER}` }}>
         <h1 style={{
           color: '#F5F5F5', fontSize: '17px', fontWeight: '800',
-          margin: 0, letterSpacing: '0.06em', fontFamily: 'system-ui, sans-serif',
+          margin: 0, letterSpacing: '0.06em', fontFamily: 'var(--font-playfair), Georgia, serif',
         }}>
           COMPLY<span style={{ color: GOLD }}>.AE</span>
         </h1>

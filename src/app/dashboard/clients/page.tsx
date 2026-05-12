@@ -71,7 +71,7 @@ export default function ClientsPage() {
     <div style={{ padding: '40px 32px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <div>
-          <h2 style={{ color: '#ffffff', fontSize: '28px', fontWeight: '700', margin: '0 0 4px 0' }}>Clients</h2>
+          <h2 style={{ color: '#ffffff', fontSize: '28px', fontWeight: '700', margin: '0 0 4px 0', fontFamily: 'var(--font-playfair), Georgia, serif' }}>Clients</h2>
           <p style={{ color: '#8888aa', fontSize: '14px', margin: 0 }}>{clients.length} total clients</p>
         </div>
         <button onClick={() => router.push('/dashboard/clients/new')} style={{ padding: '10px 20px', backgroundColor: '#C9963F', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>
