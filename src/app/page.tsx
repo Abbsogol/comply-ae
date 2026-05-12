@@ -8,6 +8,7 @@ const HERO_SRC = '/hero2.mp4'
 
 function HeroCanvas() {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const [videoReady, setVideoReady] = useState(false)
   useEffect(() => {
     const v = videoRef.current
     if (!v) return
@@ -15,8 +16,23 @@ function HeroCanvas() {
   }, [])
   return (
     <>
-      <video ref={videoRef} src={HERO_SRC} autoPlay muted loop playsInline
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center center', zIndex: 0 }}
+      {/* Dark fallback shown instantly while video loads */}
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 0,
+        background: 'radial-gradient(ellipse at 60% 40%, #1a1008 0%, #030308 60%, #000 100%)',
+      }} />
+      <video
+        ref={videoRef}
+        src={HERO_SRC}
+        autoPlay muted loop playsInline
+        preload="auto"
+        onCanPlay={() => setVideoReady(true)}
+        style={{
+          position: 'absolute', inset: 0, width: '100%', height: '100%',
+          objectFit: 'cover', objectPosition: 'center center', zIndex: 0,
+          opacity: videoReady ? 1 : 0,
+          transition: 'opacity 1.2s ease',
+        }}
       />
       <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'linear-gradient(to bottom, rgba(3,3,10,0.68) 0%, rgba(3,3,10,0.28) 28%, rgba(3,3,10,0.38) 62%, rgba(8,8,8,0.92) 100%)' }} />
       <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'radial-gradient(ellipse at center, transparent 38%, rgba(0,0,0,0.52) 100%)' }} />
