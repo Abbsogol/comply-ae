@@ -222,7 +222,7 @@ function TimelineConnector() {
 }
 
 // ─── Trust marquee ticker ─────────────────────────────────────────────────────
-const TRUST_ITEMS = ['UAE AML Law No. 20 / 2018', 'RERA', 'CBUAE', 'FATF Recommendations', 'goAML', 'UAE Law Art. 14', 'OFAC SDN', 'UN Sanctions', 'EU Sanctions', 'OFSI']
+const TRUST_ITEMS = ['DLD', 'RERA', 'Ejari', 'Law 33 / 2008', 'Mollak', 'DEWA', 'RDC', 'UAE Tenancy Law', 'PDPL', 'Dubai Courts', 'FATF', 'UAE AML Law']
 
 function TrustMarquee() {
   const items = [...TRUST_ITEMS, ...TRUST_ITEMS]
@@ -278,16 +278,16 @@ export default function LandingPage() {
         <div style={S.heroContent}>
           <div style={S.heroBadge}>
             <span style={S.heroBadgeDot} className="hero-badge-dot" />
-            Built for UAE Federal AML Law No. 20 of 2018
+            The Dubai property operations platform
           </div>
           <h1 style={S.heroTitle}>
-            Compliance that moves{' '}
-            <em style={S.heroTitleItalic}>at the speed</em>
-            <br />of Dubai real estate.
+            Every deadline met.{' '}
+            <em style={S.heroTitleItalic}>Every property</em>
+            <br />managed without the chaos.
           </h1>
           <p style={S.heroSub}>
-            Automate AML/KYC workflows, file STRs to goAML, screen PEPs and sanctions lists,
-            and stay audit-ready — all in one platform built for RERA-registered agencies.
+            Replace WhatsApp threads, scattered spreadsheets, and missed Ejari renewals
+            with one intelligent platform built for Dubai landlords, property managers, and investors.
           </p>
           <div style={S.heroCTAs}>
             <button onClick={() => router.push('/login')} style={S.ctaPrimary}>
@@ -297,7 +297,7 @@ export default function LandingPage() {
               View dashboard demo
             </button>
           </div>
-          <p style={S.heroNote}>No credit card required · RERA-compliant · Setup in 15 minutes</p>
+          <p style={S.heroNote}>No credit card required · Free for 14 days · Setup in 10 minutes</p>
         </div>
       </section>
 
@@ -305,10 +305,10 @@ export default function LandingPage() {
       <section style={S.statsSection}>
         <div style={S.statsGrid}>
           {[
-            { value: 2700, suffix: '+', label: 'RERA-registered agencies', sub: 'potential users', dir: 'left' as const },
-            { value: 40000, suffix: '+', label: 'Licensed brokers in Dubai', sub: 'covered by AML law', dir: 'up' as const },
-            { value: 55000, suffix: ' AED', label: 'Cash transaction threshold', sub: 'triggering REAR report', dir: 'up' as const },
-            { value: 5, suffix: ' years', label: 'Mandatory record retention', sub: 'UAE Law Art. 14', dir: 'right' as const },
+            { value: 85000, suffix: '+', label: 'Property transactions in Dubai', sub: 'in 2025 alone', dir: 'left' as const },
+            { value: 50000, suffix: ' AED', label: 'Max Ejari non-compliance fine', sub: 'per missed renewal', dir: 'up' as const },
+            { value: 18, suffix: '+', label: 'Hours wasted monthly by PMs', sub: 'on manual admin tasks', dir: 'up' as const },
+            { value: 190, suffix: 'M+', label: 'In tenancy disputes', sub: 'Q2 2025 alone (RDC data)', dir: 'right' as const },
           ].map((stat, i) => (
             <FadeIn key={i} delay={i * 110} direction={stat.dir} style={{ ...(i < 3 ? { borderRight: '1px solid #1A1A1A' } : {}) }}>
               <div style={S.statCard}>
@@ -328,19 +328,19 @@ export default function LandingPage() {
             <FadeIn direction="none">
               <div style={S.sectionTag} className="section-tag">FEATURES</div>
             </FadeIn>
-            <RevealText delay={100}><h2 style={S.sectionTitle}>Everything your compliance officer needs</h2></RevealText>
+            <RevealText delay={100}><h2 style={S.sectionTitle}>Everything a Dubai property owner actually needs</h2></RevealText>
             <FadeIn delay={200} direction="none">
-              <p style={S.sectionSub}>Built around the actual workflows Dubai agencies run every day — not a generic template.</p>
+              <p style={S.sectionSub}>Built around the real workflows Dubai landlords and property managers deal with every single day.</p>
             </FadeIn>
           </div>
           <div style={S.featuresGrid}>
             {[
-              { num: '01', icon: '🛡️', title: 'KYC Client Profiles', desc: 'Full KYC intake — passport, Emirates ID, source of funds, property interest. Compliance checklist auto-populated from real data. Color-coded expiry alerts.' },
-              { num: '02', icon: '📊', title: 'CDD/EDD Risk Scoring', desc: '10-question risk assessment based on UAE/FATF risk factors. Auto-scores to CDD, CDD+, or EDD. Saves history and updates client risk level in real time.' },
-              { num: '03', icon: '💸', title: 'Cash Transaction Tracker', desc: "Running total toward the AED 55,000 threshold. Red alert fires the moment it's exceeded and links directly to the REAR report generator." },
-              { num: '04', icon: '🚨', title: 'STR Builder', desc: '16 red-flag checkboxes grouped by category. Tipping-off warning banner. One-click goAML-ready PDF output. All STRs archived with full history.' },
-              { num: '05', icon: '🔍', title: 'PEP & Sanctions Screening', desc: '6 official lists including CBUAE, OFAC SDN, UN, EU, and OFSI. Step-by-step confirmation workflow. Auto-sets risk level to High on match.' },
-              { num: '06', icon: '🔒', title: '5-Year Records Vault', desc: 'Tracks every client through their retention window post-relationship. Progress bars, disposal dates, and UAE Law Art. 14 compliance built in.' },
+              { num: '01', icon: '🗓️', title: 'Ejari & Compliance Calendar', desc: 'Track Ejari renewals, DEWA deadlines, service charge due dates, and visa expiries per property. Automated alerts at 90/60/30/7 days — before a fine lands at your door.' },
+              { num: '02', icon: '📋', title: 'Digital Condition Reports', desc: 'Complete move-in and move-out inspections room by room. Tenants sign digitally via a shared link. Timestamped PDF protects your deposit — no dispute stands a chance.' },
+              { num: '03', icon: '🔧', title: 'Maintenance Coordinator', desc: 'Replace WhatsApp maintenance threads with a structured system. Log requests, assign vendors, track status from open to resolved, and keep a full history per property.' },
+              { num: '04', icon: '🗄️', title: 'Document Vault', desc: 'Upload title deeds, tenancy contracts, Ejari certificates, NOCs, and invoices in one organised vault. Expiry alerts and instant retrieval when your lawyer or agent needs it.' },
+              { num: '05', icon: '💰', title: 'Rent & Payment Tracker', desc: "Track monthly payments, PDC cheque dates, and late fees per tenant. Running totals, overdue alerts, and one-click payment statements — built for Dubai's monthly payment reform." },
+              { num: '06', icon: '✅', title: 'Service Charge & NOC Readiness', desc: '42% of NOC rejections are caused by unpaid service charges. Track Mollak invoices, monitor your NOC readiness in real time, and never lose a deal over an outstanding balance.' },
             ].map((f, i) => (
               <FadeIn key={i} delay={i * 90} direction={i % 2 === 0 ? 'left' : 'right'}>
                 <div style={S.featureCard} className="feature-card">
@@ -364,9 +364,9 @@ export default function LandingPage() {
             <FadeIn direction="none">
               <div style={S.sectionTag} className="section-tag">HOW IT WORKS</div>
             </FadeIn>
-            <RevealText delay={100}><h2 style={S.sectionTitle}>From client intake to full AML compliance</h2></RevealText>
+            <RevealText delay={100}><h2 style={S.sectionTitle}>From scattered chaos to full property control</h2></RevealText>
             <FadeIn delay={200} direction="none">
-              <p style={S.sectionSub}>A structured workflow that replaces spreadsheets, WhatsApp, and manual goAML filing.</p>
+              <p style={S.sectionSub}>A structured workflow that replaces WhatsApp, Excel, and phone calls with one intelligent system.</p>
             </FadeIn>
           </div>
 
@@ -375,10 +375,10 @@ export default function LandingPage() {
             <TimelineConnector />
             <div style={S.stepsRow}>
               {[
-                { num: '01', title: 'Onboard the client', desc: 'Create KYC profile. Upload passport, Emirates ID, source of funds declaration. Compliance checklist auto-tracks completeness.' },
-                { num: '02', title: 'Assess the risk', desc: 'Run the CDD/EDD scoring form. Score is calculated instantly — CDD, CDD+, or EDD — and saved to the client record.' },
-                { num: '03', title: 'Screen & monitor', desc: 'Check 6 official sanctions lists and PEP databases. Track cash transactions toward the AED 55,000 threshold.' },
-                { num: '04', title: 'Report & retain', desc: 'File STRs or REAR reports as PDFs. Store everything for the mandatory 5-year window. Stay audit-ready at all times.' },
+                { num: '01', title: 'Add your properties', desc: 'Register each unit with tenant details, Ejari renewal date, rent schedule, and service charge information. Two minutes per property.' },
+                { num: '02', title: 'Track every deadline', desc: 'Ejari renewals, DEWA, insurance, Mollak service charges — all tracked automatically with 90/30/7-day alerts before they become problems.' },
+                { num: '03', title: 'Run daily operations', desc: 'Log maintenance requests, coordinate vendors, track rent payments, and manage move-ins and move-outs — structured, searchable, and audit-ready.' },
+                { num: '04', title: 'Stay in control', desc: 'Every property, every document, every alert in one dashboard. Export reports for your accountant, lawyer, or investor in one click.' },
               ].map((step, i) => (
                 <FadeIn key={i} delay={i * 150} direction={i % 2 === 0 ? 'left' : 'right'}>
                   <div style={S.step} className="step-card">
@@ -408,9 +408,9 @@ export default function LandingPage() {
           </div>
           <div style={S.pricingGrid}>
             {[
-              { name: 'Starter', price: '1,500', period: '/month', desc: 'For small agencies managing up to 50 clients.', features: ['Up to 50 active clients', 'KYC profiles & documents', 'Risk assessments', 'STR builder', 'PEP/Sanctions screening', '5-year vault', 'Email support'], cta: 'Start free trial', highlight: false },
-              { name: 'Pro', price: '3,500', period: '/month', desc: 'For established agencies with a dedicated compliance officer.', features: ['Unlimited clients', 'Everything in Starter', 'Cash transaction tracker', 'REAR report generator', 'Compliance calendar', 'Priority support', 'Team access (5 users)'], cta: 'Start free trial', highlight: true },
-              { name: 'Enterprise', price: '8,000+', period: '/month', desc: 'For large agencies, property developers, and groups.', features: ['Everything in Pro', 'Custom user seats', 'API access', 'Mollak/Ejari integration (coming)', 'Dedicated account manager', 'SLA guarantee', 'Custom onboarding'], cta: 'Contact us', highlight: false },
+              { name: 'Starter', price: '99', period: '/month', desc: 'For individual landlords managing up to 5 properties.', features: ['Up to 5 properties', 'Ejari compliance calendar', 'Document vault', 'Digital condition reports', 'Rent tracker', 'Email deadline alerts', 'Email support'], cta: 'Start free trial', highlight: false },
+              { name: 'Pro', price: '249', period: '/month', desc: 'For multi-unit owners managing up to 20 properties.', features: ['Up to 20 properties', 'Everything in Starter', 'Maintenance coordinator', 'Service charge & NOC tracker', 'WhatsApp reminders', 'P&L reports & export', 'Team access (3 users)'], cta: 'Start free trial', highlight: true },
+              { name: 'Agency', price: '1,499', period: '/month', desc: 'For property management companies and agencies.', features: ['Unlimited properties', 'Everything in Pro', 'Multi-owner portfolio view', 'Bulk actions & reporting', 'Branded owner reports', 'Dedicated account manager', 'Priority support + SLA'], cta: 'Contact us', highlight: false },
             ].map((plan, i) => (
               <FadeIn key={i} delay={i * 130} direction={i === 0 ? 'left' : i === 2 ? 'right' : 'up'}>
                 <div style={{ ...S.pricingCard, ...(plan.highlight ? S.pricingCardHighlight : {}) }}
@@ -436,7 +436,7 @@ export default function LandingPage() {
       {/* ── Trust marquee ──────────────────────────────────────────────── */}
       <section style={S.trustSection}>
         <FadeIn direction="none">
-          <p style={{ ...S.trustLabel, textAlign: 'center', marginBottom: '24px' }}>Built in compliance with</p>
+          <p style={{ ...S.trustLabel, textAlign: 'center', marginBottom: '24px' }}>Built for Dubai's regulatory environment</p>
         </FadeIn>
         <TrustMarquee />
       </section>
@@ -447,10 +447,10 @@ export default function LandingPage() {
         <GoldParticles />
         <div style={S.ctaInner}>
           <FadeIn direction="none">
-            <h2 style={S.ctaTitle}>Ready to meet your AML obligations?</h2>
+            <h2 style={S.ctaTitle}>Stop managing your properties on WhatsApp.</h2>
           </FadeIn>
           <FadeIn delay={120} direction="none">
-            <p style={S.ctaSub}>Join RERA-registered agencies using COMPLY.AE to stay compliant without the manual work.</p>
+            <p style={S.ctaSub}>Join Dubai landlords and property managers using COMPLY.AE to stay organised, compliant, and in control.</p>
           </FadeIn>
           <FadeIn delay={240} direction="none">
             <button onClick={() => router.push('/login')} style={S.ctaPrimaryLarge} className="cta-btn-glow">
@@ -469,7 +469,7 @@ export default function LandingPage() {
           <div style={S.footerTop}>
             <div>
               <div style={S.footerLogo}>COMPLY<span style={S.logoDot}>.AE</span></div>
-              <p style={S.footerTagline}>UAE Real Estate AML/KYC Compliance Platform</p>
+              <p style={S.footerTagline}>Dubai Property Operations Platform</p>
             </div>
             <div style={S.footerLinks}>
               <div style={S.footerCol}>
