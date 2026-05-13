@@ -4,61 +4,57 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-type Client = {
-  id: string
-  full_name: string
-  nationality: string
-  status: string
-  risk_level: string
-  passport_expiry: string | null
-  emirates_id_expiry: string | null
-  created_at: string
-}
+const GOLD = '#C9963F'
+const BORDER = '#1E1E1E'
 
 type CalendarEvent = {
   date: string // YYYY-MM-DD
-  type: 'passport_expiry' | 'emirates_id_expiry' | 'pending_review' | 'high_risk'
-  clientId: string
-  clientName: string
+  type: 'ejari_expiry' | 'ejari_notice' | 'passport_expiry' | 'emirates_id_expiry'
+  entityId: string
+  entityName: string
   label: string
+  linkPath: string
   urgency: 'expired' | 'critical' | 'warning' | 'normal'
 }
 
-const eventColors = {
-  expired: { dot: '#f87171', bg: '#2d0f0f', text: '#f87171', border: '#7f1d1d' },
-  critical: { dot: '#f59e0b', bg: '#12100A', text: '#f59e0b', border: '#92400e' },
-  warning: { dot: '#C9963F', bg: '#0D0D0D', text: '#C9963F', border: '#1E1E1E' },
-  normal: { dot: '#4ade80', bg: '#052e16', text: '#4ade80', border: '#166534' },
+const EVENT_COLORS = {
+  expired:  { dot: '#f87171', bg: '#1a0505', text: '#f87171', border: '#5a1a1a' },
+  critical: { dot: '#fb923c', bg: '#1a0e05', text: '#fb923c', border: '#5a2a05' },
+  warning:  { dot: GOLD,      bg: '#1a1100', text: GOLD,      border: '#3a2a00' },
+  normal:   { dot: '#4ade80', bg: '#051a0e', text: '#4ade80', border: '#0a3a1a' },
 }
 
-const eventTypeLabels = {
-  passport_expiry: 'Passport Expiry',
+const EVENT_TYPE_LABELS = {
+  ejari_expiry:       'Ejari Expiry',
+  ejari_notice:       '90-Day Notice Due',
+  passport_expiry:    'Passport Expiry',
   emirates_id_expiry: 'Emirates ID Expiry',
-  pending_review: 'Pending KYC Review',
-  high_risk: 'High Risk Client',
 }
 
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const DAYS   = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
 function getUrgency(dateStr: string): 'expired' | 'critical' | 'warning' | 'normal' {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const date = new Date(dateStr)
-  date.setHours(0, 0, 0, 0)
-  const diff = Math.ceil((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-  if (diff < 0) return 'expired'
+  const today = new Date(); today.setHours(0,0,0,0)
+  const date  = new Date(dateStr); date.setHours(0,0,0,0)
+  const diff  = Math.ceil((date.getTime() - today.getTime()) / 86400000)
+  if (diff < 0)   return 'expired'
   if (diff <= 14) return 'critical'
   if (diff <= 30) return 'warning'
   return 'normal'
 }
 
+function addDays(dateStr: string, n: number): string {
+  const d = new Date(dateStr)
+  d.setDate(d.getDate() + n)
+  return d.toISOString().split('T')[0]
+}
+
 export default function CalendarPage() {
   const router = useRouter()
-  const [clients, setClients] = useState<Client[]>([])
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
+  const [currentYear, setCurrentYear]   = useState(new Date().getFullYear())
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
@@ -67,74 +63,68 @@ export default function CalendarPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      const { data } = await supabase
-        .from('clients')
-        .select('id, full_name, nationality, status, risk_level, passport_expiry, emirates_id_expiry, created_at')
-        .order('full_name')
+      const [{ data: properties }, { data: tenants }] = await Promise.all([
+        supabase.from('properties').select('id, unit_number, building_name, ejari_expiry'),
+        supabase.from('clients').select('id, full_name, passport_expiry, emirates_id_expiry'),
+      ])
 
-      const allClients = data || []
-      setClients(allClients)
-
-      // Build events
       const evts: CalendarEvent[] = []
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
 
-      allClients.forEach(c => {
-        // Passport expiry
-        if (c.passport_expiry) {
-          const diff = Math.ceil((new Date(c.passport_expiry).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-          if (diff <= 60) { // show if within 60 days or expired
+      // Property events
+      for (const p of properties || []) {
+        const name = `${p.unit_number}${p.building_name ? ', ' + p.building_name : ''}`
+        if (p.ejari_expiry) {
+          evts.push({
+            date: p.ejari_expiry,
+            type: 'ejari_expiry',
+            entityId: p.id,
+            entityName: name,
+            label: EVENT_TYPE_LABELS.ejari_expiry,
+            linkPath: `/dashboard/properties/${p.id}`,
+            urgency: getUrgency(p.ejari_expiry),
+          })
+          // 90-day notice: ejari_expiry - 90 days
+          const noticeDate = addDays(p.ejari_expiry, -90)
+          const noticeUrgency = getUrgency(noticeDate)
+          if (noticeUrgency !== 'normal' || new Date(noticeDate) >= new Date()) {
             evts.push({
-              date: c.passport_expiry,
-              type: 'passport_expiry',
-              clientId: c.id,
-              clientName: c.full_name,
-              label: 'Passport Expiry',
-              urgency: getUrgency(c.passport_expiry),
+              date: noticeDate,
+              type: 'ejari_notice',
+              entityId: p.id,
+              entityName: name,
+              label: EVENT_TYPE_LABELS.ejari_notice,
+              linkPath: `/dashboard/properties/${p.id}`,
+              urgency: noticeUrgency,
             })
           }
         }
+      }
 
-        // Emirates ID expiry
-        if (c.emirates_id_expiry) {
-          const diff = Math.ceil((new Date(c.emirates_id_expiry).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-          if (diff <= 60) {
-            evts.push({
-              date: c.emirates_id_expiry,
-              type: 'emirates_id_expiry',
-              clientId: c.id,
-              clientName: c.full_name,
-              label: 'Emirates ID Expiry',
-              urgency: getUrgency(c.emirates_id_expiry),
-            })
-          }
-        }
-
-        // Pending reviews — pin to today
-        if (c.status === 'pending') {
+      // Tenant events
+      for (const t of tenants || []) {
+        if (t.passport_expiry) {
           evts.push({
-            date: today.toISOString().split('T')[0],
-            type: 'pending_review',
-            clientId: c.id,
-            clientName: c.full_name,
-            label: 'Pending KYC Review',
-            urgency: 'warning',
+            date: t.passport_expiry,
+            type: 'passport_expiry',
+            entityId: t.id,
+            entityName: t.full_name,
+            label: EVENT_TYPE_LABELS.passport_expiry,
+            linkPath: `/dashboard/clients/${t.id}`,
+            urgency: getUrgency(t.passport_expiry),
           })
         }
-
-        // High risk — pin to today
-        if (c.risk_level === 'high') {
+        if (t.emirates_id_expiry) {
           evts.push({
-            date: today.toISOString().split('T')[0],
-            type: 'high_risk',
-            clientId: c.id,
-            clientName: c.full_name,
-            label: 'High Risk Client',
-            urgency: 'critical',
+            date: t.emirates_id_expiry,
+            type: 'emirates_id_expiry',
+            entityId: t.id,
+            entityName: t.full_name,
+            label: EVENT_TYPE_LABELS.emirates_id_expiry,
+            linkPath: `/dashboard/clients/${t.id}`,
+            urgency: getUrgency(t.emirates_id_expiry),
           })
         }
-      })
+      }
 
       setEvents(evts)
       setLoading(false)
@@ -142,119 +132,120 @@ export default function CalendarPage() {
     init()
   }, [router])
 
-  const prevMonth = () => {
-    if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(y => y - 1) }
-    else setCurrentMonth(m => m - 1)
-    setSelectedDate(null)
-  }
-
-  const nextMonth = () => {
-    if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(y => y + 1) }
-    else setCurrentMonth(m => m + 1)
-    setSelectedDate(null)
-  }
-
-  const goToday = () => {
-    setCurrentMonth(new Date().getMonth())
-    setCurrentYear(new Date().getFullYear())
-    setSelectedDate(null)
-  }
-
-  // Build calendar grid
+  // Calendar grid
   const firstDay = new Date(currentYear, currentMonth, 1).getDay()
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
-  const daysInPrevMonth = new Date(currentYear, currentMonth, 0).getDate()
+  const prevMonthDays = new Date(currentYear, currentMonth, 0).getDate()
 
-  const cells: { day: number; month: 'prev' | 'current' | 'next'; dateStr: string }[] = []
-
-  // Previous month days
-  for (let i = firstDay - 1; i >= 0; i--) {
-    const d = daysInPrevMonth - i
-    const m = currentMonth === 0 ? 11 : currentMonth - 1
+  const cells: { day: number; dateStr: string; month: 'prev' | 'current' | 'next' }[] = []
+  for (let i = 0; i < firstDay; i++) {
+    const d = prevMonthDays - firstDay + 1 + i
+    const m = currentMonth === 0 ? 12 : currentMonth
     const y = currentMonth === 0 ? currentYear - 1 : currentYear
-    cells.push({ day: d, month: 'prev', dateStr: `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}` })
+    cells.push({ day: d, dateStr: `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`, month: 'prev' })
   }
-
-  // Current month days
   for (let d = 1; d <= daysInMonth; d++) {
-    cells.push({ day: d, month: 'current', dateStr: `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}` })
+    cells.push({ day: d, dateStr: `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`, month: 'current' })
   }
-
-  // Next month days to fill 6 rows
-  let nextDay = 1
-  while (cells.length < 42) {
-    const m = currentMonth === 11 ? 0 : currentMonth + 1
+  const remaining = 42 - cells.length
+  for (let d = 1; d <= remaining; d++) {
+    const m = currentMonth === 11 ? 1 : currentMonth + 2
     const y = currentMonth === 11 ? currentYear + 1 : currentYear
-    cells.push({ day: nextDay, month: 'next', dateStr: `${y}-${String(m + 1).padStart(2, '0')}-${String(nextDay).padStart(2, '0')}` })
-    nextDay++
+    cells.push({ day: d, dateStr: `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`, month: 'next' })
   }
 
-  const todayStr = new Date().toISOString().split('T')[0]
+  const today = new Date(); today.setHours(0,0,0,0)
+  const todayStr = today.toISOString().split('T')[0]
 
   const eventsForDate = (dateStr: string) => events.filter(e => e.date === dateStr)
-
-  // Upcoming events in next 30 days
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const in30 = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)
+  const selectedEvents = selectedDate ? eventsForDate(selectedDate) : []
 
   const upcoming = events
     .filter(e => {
-      const d = new Date(e.date)
-      return d >= today && d <= in30 && e.type !== 'pending_review' && e.type !== 'high_risk'
+      const d = new Date(e.date); d.setHours(0,0,0,0)
+      const diff = Math.ceil((d.getTime() - today.getTime()) / 86400000)
+      return diff >= 0 && diff <= 60
     })
     .sort((a, b) => a.date.localeCompare(b.date))
 
-  const pendingClients = clients.filter(c => c.status === 'pending')
-  const highRiskClients = clients.filter(c => c.risk_level === 'high')
-  const expiredDocs = events.filter(e => e.urgency === 'expired')
+  const overdue = events.filter(e => e.urgency === 'expired')
 
-  const selectedEvents = selectedDate ? eventsForDate(selectedDate) : []
+  const prevMonth = () => { if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(y => y - 1) } else setCurrentMonth(m => m - 1) }
+  const nextMonth = () => { if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(y => y + 1) } else setCurrentMonth(m => m + 1) }
+  const goToday  = () => { setCurrentYear(new Date().getFullYear()); setCurrentMonth(new Date().getMonth()) }
 
-  if (loading) return <div style={{ padding: '40px 32px' }}><p style={{ color: '#8888aa' }}>Loading calendar...</p></div>
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#080808', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: '#444', fontFamily: 'system-ui, sans-serif' }}>Loading calendar...</p>
+      </div>
+    )
+  }
 
   return (
-    <div style={{ padding: '40px 32px' }}>
+    <div style={{ padding: '40px 32px', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+
       {/* Header */}
-      <div style={{ marginBottom: '32px' }}>
-        <h2 style={{ color: '#ffffff', fontSize: '28px', fontWeight: '700', margin: '0 0 4px 0', fontFamily: 'var(--font-playfair), Georgia, serif' }}>Compliance Calendar</h2>
-        <p style={{ color: '#8888aa', fontSize: '14px', margin: 0 }}>All compliance deadlines across all clients in one view</p>
+      <div style={{ marginBottom: '28px' }}>
+        <h2 style={{ color: '#F5F5F5', fontSize: '26px', fontWeight: '700', margin: '0 0 4px 0', fontFamily: 'var(--font-playfair), Georgia, serif' }}>
+          Compliance Calendar
+        </h2>
+        <p style={{ color: '#444', fontSize: '13px', margin: 0 }}>
+          Ejari renewals, 90-day notices, and document expiries across your portfolio
+        </p>
       </div>
 
-      {/* Summary stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '32px' }}>
-        {[
-          { label: 'Expired Documents', value: expiredDocs.length, color: '#f87171', bg: '#2d0f0f', border: '#7f1d1d' },
-          { label: 'Expiring in 14 Days', value: events.filter(e => e.urgency === 'critical' && e.type !== 'pending_review' && e.type !== 'high_risk').length, color: '#f59e0b', bg: '#12100A', border: '#92400e' },
-          { label: 'Pending KYC Reviews', value: pendingClients.length, color: '#C9963F', bg: '#0D0D0D', border: '#1E1E1E' },
-          { label: 'High Risk Clients', value: highRiskClients.length, color: '#f87171', bg: '#2d0f0f', border: '#7f1d1d' },
-        ].map(card => (
-          <div key={card.label} style={{ backgroundColor: card.bg, border: `1px solid ${card.border}`, borderRadius: '12px', padding: '20px' }}>
-            <p style={{ color: '#8888aa', fontSize: '12px', margin: '0 0 8px 0' }}>{card.label}</p>
-            <p style={{ color: card.color, fontSize: '32px', fontWeight: '800', margin: 0 }}>{card.value}</p>
+      {/* Overdue alert */}
+      {overdue.length > 0 && (
+        <div style={{ backgroundColor: '#1a0505', border: '1px solid #5a1a1a', borderRadius: '10px', padding: '14px 18px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '18px' }}>🚨</span>
+          <div>
+            <p style={{ color: '#f87171', fontSize: '13px', fontWeight: '700', margin: '0 0 2px 0' }}>
+              {overdue.length} overdue deadline{overdue.length !== 1 ? 's' : ''} — immediate action required
+            </p>
+            <p style={{ color: '#888', fontSize: '12px', margin: 0 }}>
+              {overdue.map(e => `${e.entityName} (${e.label})`).join(' · ')}
+            </p>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '24px', alignItems: 'start' }}>
-        {/* Calendar */}
-        <div style={{ backgroundColor: '#0D0D0D', border: '1px solid #1E1E1E', borderRadius: '12px', overflow: 'hidden' }}>
-          {/* Month navigation */}
-          <div style={{ padding: '20px 24px', borderBottom: '1px solid #1E1E1E', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ color: '#ffffff', fontSize: '20px', fontWeight: '700', margin: 0 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '24px', alignItems: 'start' }}>
+
+        {/* Calendar grid */}
+        <div style={{ backgroundColor: '#0D0D0D', border: `1px solid ${BORDER}`, borderRadius: '12px', overflow: 'hidden' }}>
+
+          {/* Month nav */}
+          <div style={{ padding: '18px 24px', borderBottom: `1px solid ${BORDER}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ color: '#F5F5F5', fontSize: '18px', fontWeight: '700', margin: 0 }}>
               {MONTHS[currentMonth]} {currentYear}
             </h3>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={goToday} style={{ padding: '6px 14px', backgroundColor: 'transparent', border: '1px solid #1E1E1E', borderRadius: '6px', color: '#8888aa', fontSize: '13px', cursor: 'pointer' }}>Today</button>
-              <button onClick={prevMonth} style={{ padding: '6px 12px', backgroundColor: 'transparent', border: '1px solid #1E1E1E', borderRadius: '6px', color: '#ffffff', fontSize: '14px', cursor: 'pointer' }}>‹</button>
-              <button onClick={nextMonth} style={{ padding: '6px 12px', backgroundColor: 'transparent', border: '1px solid #1E1E1E', borderRadius: '6px', color: '#ffffff', fontSize: '14px', cursor: 'pointer' }}>›</button>
+              <button onClick={goToday} style={{ padding: '6px 12px', backgroundColor: 'transparent', border: `1px solid ${BORDER}`, borderRadius: '6px', color: '#555', fontSize: '12px', cursor: 'pointer' }}>Today</button>
+              <button onClick={prevMonth} style={{ padding: '6px 12px', backgroundColor: 'transparent', border: `1px solid ${BORDER}`, borderRadius: '6px', color: '#F5F5F5', fontSize: '14px', cursor: 'pointer' }}>‹</button>
+              <button onClick={nextMonth} style={{ padding: '6px 12px', backgroundColor: 'transparent', border: `1px solid ${BORDER}`, borderRadius: '6px', color: '#F5F5F5', fontSize: '14px', cursor: 'pointer' }}>›</button>
             </div>
           </div>
 
+          {/* Legend */}
+          <div style={{ padding: '10px 24px', borderBottom: `1px solid ${BORDER}`, display: 'flex', gap: '18px', flexWrap: 'wrap' }}>
+            {[
+              { label: 'Ejari Expiry', color: '#f87171' },
+              { label: '90-Day Notice', color: '#fb923c' },
+              { label: 'Passport Expiry', color: GOLD },
+              { label: 'Emirates ID Expiry', color: '#4ade80' },
+            ].map(item => (
+              <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: item.color }} />
+                <span style={{ color: '#444', fontSize: '11px' }}>{item.label}</span>
+              </div>
+            ))}
+          </div>
+
           {/* Day headers */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid #1E1E1E' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: `1px solid ${BORDER}` }}>
             {DAYS.map(d => (
-              <div key={d} style={{ padding: '10px 0', textAlign: 'center', color: '#8888aa', fontSize: '12px', fontWeight: '600', letterSpacing: '0.05em' }}>{d}</div>
+              <div key={d} style={{ padding: '9px 0', textAlign: 'center', color: '#444', fontSize: '11px', fontWeight: '600', letterSpacing: '0.05em' }}>{d}</div>
             ))}
           </div>
 
@@ -262,78 +253,73 @@ export default function CalendarPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
             {cells.map((cell, idx) => {
               const cellEvents = eventsForDate(cell.dateStr)
-              const isToday = cell.dateStr === todayStr
+              const isToday    = cell.dateStr === todayStr
               const isSelected = cell.dateStr === selectedDate
-              const isCurrent = cell.month === 'current'
+              const isCurrent  = cell.month === 'current'
 
-              // Highest urgency for cell background hint
-              const hasExpired = cellEvents.some(e => e.urgency === 'expired')
+              const hasExpired  = cellEvents.some(e => e.urgency === 'expired')
               const hasCritical = cellEvents.some(e => e.urgency === 'critical')
-              const hasWarning = cellEvents.some(e => e.urgency === 'warning')
+              const hasWarning  = cellEvents.some(e => e.urgency === 'warning')
 
               let cellBg = 'transparent'
-              if (isSelected) cellBg = '#2d2d5e'
-              else if (hasExpired) cellBg = '#1a0a0a'
-              else if (hasCritical) cellBg = '#12100A'
-              else if (hasWarning) cellBg = '#0d1520'
+              if (isSelected)   cellBg = '#1a1a2e'
+              else if (hasExpired)  cellBg = '#140404'
+              else if (hasCritical) cellBg = '#140a04'
+              else if (hasWarning)  cellBg = '#100e04'
+
+              // Color the dot per event type
+              const getDotColor = (evt: CalendarEvent) => {
+                if (evt.type === 'ejari_expiry')       return '#f87171'
+                if (evt.type === 'ejari_notice')       return '#fb923c'
+                if (evt.type === 'passport_expiry')    return GOLD
+                if (evt.type === 'emirates_id_expiry') return '#4ade80'
+                return '#888'
+              }
 
               return (
                 <div
                   key={idx}
                   onClick={() => cellEvents.length > 0 ? setSelectedDate(cell.dateStr === selectedDate ? null : cell.dateStr) : undefined}
                   style={{
-                    minHeight: '80px',
-                    padding: '8px',
-                    borderRight: (idx + 1) % 7 !== 0 ? '1px solid #111111' : 'none',
-                    borderBottom: idx < 35 ? '1px solid #111111' : 'none',
+                    minHeight: '76px', padding: '7px',
+                    borderRight:  (idx + 1) % 7 !== 0 ? '1px solid #111' : 'none',
+                    borderBottom: idx < cells.length - 7 ? '1px solid #111' : 'none',
                     backgroundColor: cellBg,
                     cursor: cellEvents.length > 0 ? 'pointer' : 'default',
                     transition: 'background-color 0.15s',
                   }}
                 >
-                  {/* Day number */}
                   <div style={{
-                    width: '28px', height: '28px',
-                    borderRadius: '50%',
-                    backgroundColor: isToday ? '#C9963F' : 'transparent',
+                    width: '26px', height: '26px', borderRadius: '50%',
+                    backgroundColor: isToday ? GOLD : 'transparent',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     marginBottom: '4px',
                   }}>
                     <span style={{
-                      fontSize: '13px',
+                      fontSize: '12px',
                       fontWeight: isToday ? '700' : '400',
-                      color: isToday ? '#ffffff' : isCurrent ? '#ccccdd' : '#444466',
-                    }}>
-                      {cell.day}
-                    </span>
+                      color: isToday ? '#fff' : isCurrent ? '#888' : '#333',
+                    }}>{cell.day}</span>
                   </div>
 
-                  {/* Event dots/pills */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    {cellEvents.slice(0, 3).map((evt, i) => {
-                      const colors = eventColors[evt.urgency]
-                      return (
-                        <div
-                          key={i}
-                          style={{
-                            padding: '2px 5px',
-                            borderRadius: '3px',
-                            backgroundColor: colors.bg,
-                            border: `1px solid ${colors.border}`,
-                            fontSize: '10px',
-                            color: colors.text,
-                            fontWeight: '600',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {evt.clientName.split(' ')[0]} · {evt.label.split(' ')[0]}
-                        </div>
-                      )
-                    })}
-                    {cellEvents.length > 3 && (
-                      <div style={{ fontSize: '10px', color: '#8888aa', paddingLeft: '4px' }}>+{cellEvents.length - 3} more</div>
+                    {cellEvents.slice(0, 2).map((evt, i) => (
+                      <div key={i} style={{
+                        display: 'flex', alignItems: 'center', gap: '4px',
+                        padding: '2px 4px', borderRadius: '3px',
+                        backgroundColor: '#0D0D0D', border: `1px solid ${BORDER}`,
+                      }}>
+                        <div style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: getDotColor(evt), flexShrink: 0 }} />
+                        <span style={{
+                          fontSize: '9px', color: getDotColor(evt), fontWeight: '600',
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
+                          {evt.entityName.split(',')[0].split(' ').slice(0,2).join(' ')}
+                        </span>
+                      </div>
+                    ))}
+                    {cellEvents.length > 2 && (
+                      <span style={{ fontSize: '9px', color: '#444', paddingLeft: '3px' }}>+{cellEvents.length - 2}</span>
                     )}
                   </div>
                 </div>
@@ -343,29 +329,34 @@ export default function CalendarPage() {
         </div>
 
         {/* Right sidebar */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-          {/* Selected date detail */}
+          {/* Selected date */}
           {selectedDate && selectedEvents.length > 0 && (
-            <div style={{ backgroundColor: '#0D0D0D', border: '1px solid #C9963F', borderRadius: '12px', overflow: 'hidden' }}>
-              <div style={{ padding: '14px 16px', borderBottom: '1px solid #1E1E1E' }}>
-                <p style={{ color: '#C9963F', fontSize: '12px', fontWeight: '700', margin: '0 0 2px 0' }}>SELECTED DATE</p>
-                <p style={{ color: '#ffffff', fontSize: '15px', fontWeight: '700', margin: 0 }}>
+            <div style={{ backgroundColor: '#0D0D0D', border: `1px solid ${GOLD}`, borderRadius: '12px', overflow: 'hidden' }}>
+              <div style={{ padding: '12px 16px', borderBottom: `1px solid ${BORDER}` }}>
+                <p style={{ color: GOLD, fontSize: '10px', fontWeight: '700', letterSpacing: '0.06em', margin: '0 0 2px 0' }}>SELECTED DATE</p>
+                <p style={{ color: '#F5F5F5', fontSize: '14px', fontWeight: '700', margin: 0 }}>
                   {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                 </p>
               </div>
-              <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {selectedEvents.map((evt, i) => {
-                  const colors = eventColors[evt.urgency]
+                  const dotColor = evt.type === 'ejari_expiry' ? '#f87171' : evt.type === 'ejari_notice' ? '#fb923c' : evt.type === 'passport_expiry' ? GOLD : '#4ade80'
                   return (
                     <div
                       key={i}
-                      onClick={() => router.push(`/dashboard/clients/${evt.clientId}`)}
-                      style={{ padding: '10px 12px', backgroundColor: colors.bg, border: `1px solid ${colors.border}`, borderRadius: '8px', cursor: 'pointer' }}
+                      onClick={() => router.push(evt.linkPath)}
+                      style={{ padding: '10px 12px', backgroundColor: '#080808', border: `1px solid ${BORDER}`, borderRadius: '8px', cursor: 'pointer' }}
+                      onMouseEnter={e => (e.currentTarget.style.borderColor = GOLD + '55')}
+                      onMouseLeave={e => (e.currentTarget.style.borderColor = BORDER)}
                     >
-                      <p style={{ color: colors.text, fontSize: '12px', fontWeight: '700', margin: '0 0 2px 0' }}>{evt.label}</p>
-                      <p style={{ color: '#ffffff', fontSize: '13px', fontWeight: '600', margin: '0 0 2px 0' }}>{evt.clientName}</p>
-                      <p style={{ color: '#8888aa', fontSize: '11px', margin: 0 }}>Click to open client →</p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '3px' }}>
+                        <div style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: dotColor }} />
+                        <p style={{ color: dotColor, fontSize: '11px', fontWeight: '700', margin: 0 }}>{evt.label}</p>
+                      </div>
+                      <p style={{ color: '#F5F5F5', fontSize: '13px', fontWeight: '600', margin: '0 0 2px 0', paddingLeft: '14px' }}>{evt.entityName}</p>
+                      <p style={{ color: '#444', fontSize: '11px', margin: 0, paddingLeft: '14px' }}>Click to open →</p>
                     </div>
                   )
                 })}
@@ -373,30 +364,33 @@ export default function CalendarPage() {
             </div>
           )}
 
-          {/* Upcoming 30 days */}
-          <div style={{ backgroundColor: '#0D0D0D', border: '1px solid #1E1E1E', borderRadius: '12px', overflow: 'hidden' }}>
-            <div style={{ padding: '14px 16px', borderBottom: '1px solid #1E1E1E' }}>
-              <p style={{ color: '#8888aa', fontSize: '12px', fontWeight: '700', margin: '0 0 2px 0', letterSpacing: '0.05em' }}>UPCOMING — NEXT 30 DAYS</p>
-              <p style={{ color: '#ffffff', fontSize: '13px', margin: 0 }}>{upcoming.length} deadline{upcoming.length !== 1 ? 's' : ''}</p>
+          {/* Upcoming 60 days */}
+          <div style={{ backgroundColor: '#0D0D0D', border: `1px solid ${BORDER}`, borderRadius: '12px', overflow: 'hidden' }}>
+            <div style={{ padding: '12px 16px', borderBottom: `1px solid ${BORDER}` }}>
+              <p style={{ color: '#444', fontSize: '10px', fontWeight: '700', letterSpacing: '0.06em', margin: '0 0 2px 0' }}>UPCOMING — NEXT 60 DAYS</p>
+              <p style={{ color: '#F5F5F5', fontSize: '13px', margin: 0 }}>{upcoming.length} deadline{upcoming.length !== 1 ? 's' : ''}</p>
             </div>
-            <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '340px', overflowY: 'auto' }}>
+            <div style={{ padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: '7px', maxHeight: '380px', overflowY: 'auto' }}>
               {upcoming.length === 0 ? (
-                <p style={{ color: '#8888aa', fontSize: '13px', margin: 0 }}>No deadlines in the next 30 days.</p>
+                <p style={{ color: '#333', fontSize: '13px', margin: 0 }}>No deadlines in the next 60 days.</p>
               ) : upcoming.map((evt, i) => {
-                const colors = eventColors[evt.urgency]
-                const daysLeft = Math.ceil((new Date(evt.date).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+                const dotColor = evt.type === 'ejari_expiry' ? '#f87171' : evt.type === 'ejari_notice' ? '#fb923c' : evt.type === 'passport_expiry' ? GOLD : '#4ade80'
+                const d = new Date(evt.date); d.setHours(0,0,0,0)
+                const daysLeft = Math.ceil((d.getTime() - today.getTime()) / 86400000)
                 return (
                   <div
                     key={i}
-                    onClick={() => router.push(`/dashboard/clients/${evt.clientId}`)}
-                    style={{ display: 'flex', gap: '10px', alignItems: 'center', padding: '9px 10px', backgroundColor: '#080808', borderRadius: '8px', border: '1px solid #1E1E1E', cursor: 'pointer' }}
+                    onClick={() => router.push(evt.linkPath)}
+                    style={{ display: 'flex', gap: '10px', alignItems: 'center', padding: '8px 10px', backgroundColor: '#080808', borderRadius: '7px', border: `1px solid ${BORDER}`, cursor: 'pointer' }}
+                    onMouseEnter={e => (e.currentTarget.style.borderColor = GOLD + '44')}
+                    onMouseLeave={e => (e.currentTarget.style.borderColor = BORDER)}
                   >
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: colors.dot, flexShrink: 0 }} />
+                    <div style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: dotColor, flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ color: '#ffffff', fontSize: '12px', fontWeight: '600', margin: '0 0 1px 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{evt.clientName}</p>
-                      <p style={{ color: '#8888aa', fontSize: '11px', margin: 0 }}>{evt.label}</p>
+                      <p style={{ color: '#F5F5F5', fontSize: '12px', fontWeight: '600', margin: '0 0 1px 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{evt.entityName}</p>
+                      <p style={{ color: '#444', fontSize: '11px', margin: 0 }}>{evt.label}</p>
                     </div>
-                    <span style={{ color: colors.text, fontSize: '11px', fontWeight: '700', flexShrink: 0 }}>
+                    <span style={{ color: dotColor, fontSize: '11px', fontWeight: '700', flexShrink: 0 }}>
                       {daysLeft === 0 ? 'Today' : `${daysLeft}d`}
                     </span>
                   </div>
@@ -405,31 +399,6 @@ export default function CalendarPage() {
             </div>
           </div>
 
-          {/* Pending reviews */}
-          {pendingClients.length > 0 && (
-            <div style={{ backgroundColor: '#0D0D0D', border: '1px solid #1E1E1E', borderRadius: '12px', overflow: 'hidden' }}>
-              <div style={{ padding: '14px 16px', borderBottom: '1px solid #1E1E1E' }}>
-                <p style={{ color: '#8888aa', fontSize: '12px', fontWeight: '700', margin: '0 0 2px 0', letterSpacing: '0.05em' }}>PENDING KYC REVIEWS</p>
-                <p style={{ color: '#ffffff', fontSize: '13px', margin: 0 }}>{pendingClients.length} client{pendingClients.length !== 1 ? 's' : ''} awaiting review</p>
-              </div>
-              <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {pendingClients.map(c => (
-                  <div
-                    key={c.id}
-                    onClick={() => router.push(`/dashboard/clients/${c.id}`)}
-                    style={{ display: 'flex', gap: '10px', alignItems: 'center', padding: '9px 10px', backgroundColor: '#080808', borderRadius: '8px', border: '1px solid #1E1E1E', cursor: 'pointer' }}
-                  >
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#C9963F', flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ color: '#ffffff', fontSize: '12px', fontWeight: '600', margin: '0 0 1px 0' }}>{c.full_name}</p>
-                      <p style={{ color: '#8888aa', fontSize: '11px', margin: 0 }}>{c.nationality}</p>
-                    </div>
-                    <span style={{ color: '#C9963F', fontSize: '11px', fontWeight: '700' }}>PENDING</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
