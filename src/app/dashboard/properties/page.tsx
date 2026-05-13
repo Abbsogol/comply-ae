@@ -91,6 +91,7 @@ function StatusBadge({ status }: { status: string | null }) {
 export default function PropertiesPage() {
   const router = useRouter()
   const [properties, setProperties] = useState<Property[]>([])
+
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -307,6 +308,7 @@ export default function PropertiesPage() {
                 cursor: 'pointer',
                 transition: 'background 0.15s ease',
               }}
+              onClick={() => router.push(`/dashboard/properties/${p.id}`)}
               onMouseEnter={e => (e.currentTarget.style.background = '#111')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
