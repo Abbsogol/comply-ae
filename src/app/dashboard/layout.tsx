@@ -10,13 +10,14 @@ const DARK = '#080808'
 const BORDER = '#1E1E1E'
 
 const navItems = [
-  { label: 'Dashboard', path: '/dashboard', icon: '▦' },
-  { label: 'Clients',   path: '/dashboard/clients',   icon: '👤' },
-  { label: 'Documents', path: '/dashboard/documents', icon: '📄' },
-  { label: 'Calendar',  path: '/dashboard/calendar',  icon: '📅' },
-  { label: 'Vault',     path: '/dashboard/vault',     icon: '🔒' },
-  { label: 'Reports',   path: '/dashboard/reports',   icon: '📊' },
-  { label: 'Settings',  path: '/dashboard/settings',  icon: '⚙️' },
+  { label: 'Dashboard',  path: '/dashboard',            icon: '▦'  },
+  { label: 'Properties', path: '/dashboard/properties', icon: '🏠' },
+  { label: 'Tenants',    path: '/dashboard/clients',    icon: '👤' },
+  { label: 'Documents',  path: '/dashboard/documents',  icon: '📄' },
+  { label: 'Calendar',   path: '/dashboard/calendar',   icon: '📅' },
+  { label: 'Vault',      path: '/dashboard/vault',      icon: '🔒' },
+  { label: 'Reports',    path: '/dashboard/reports',    icon: '📊' },
+  { label: 'Settings',   path: '/dashboard/settings',   icon: '⚙️' },
 ]
 
 function SidebarContent() {
@@ -62,7 +63,7 @@ function SidebarContent() {
           COMPLY<span style={{ color: GOLD }}>.AE</span>
         </h1>
         <p style={{ color: '#444', fontSize: '11px', margin: '5px 0 0 0', letterSpacing: '0.04em' }}>
-          Compliance Platform
+          Property Platform
         </p>
       </div>
 
