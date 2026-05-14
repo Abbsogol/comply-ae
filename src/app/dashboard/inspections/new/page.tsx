@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
@@ -124,7 +124,7 @@ function ConditionSelector({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function NewInspectionPage() {
+function NewInspectionPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -640,5 +640,13 @@ function RoomCard({
         </div>
       )}
     </div>
+  )
+}
+
+export default function NewInspectionPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: '40px 32px', color: '#444' }}>Loading...</div>}>
+      <NewInspectionPageInner />
+    </Suspense>
   )
 }
