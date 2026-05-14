@@ -16,6 +16,7 @@ const navItems = [
   { label: 'Inspections', path: '/dashboard/inspections',  icon: '📝' },
   { label: 'Maintenance', path: '/dashboard/maintenance',  icon: '🔧' },
   { label: 'Services',    path: '/dashboard/services',     icon: '🧹' },
+  { label: 'Rent',        path: '/dashboard/rent',         icon: '💰' },
   { label: 'Documents',   path: '/dashboard/documents',    icon: '📄' },
   { label: 'Calendar',    path: '/dashboard/calendar',     icon: '📅' },
   { label: 'Vault',       path: '/dashboard/vault',        icon: '🔒' },
