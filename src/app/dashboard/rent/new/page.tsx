@@ -90,7 +90,7 @@ export default function NewRentPage() {
         .from('properties')
         .select('id, unit_number, building_name, monthly_rent, tenant_id, clients(id, full_name)')
         .order('unit_number')
-      setProperties((data as Property[]) || [])
+      setProperties((data as unknown as Property[]) || [])
     }
     init()
   }, [router])
