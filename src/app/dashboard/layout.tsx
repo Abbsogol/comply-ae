@@ -10,14 +10,15 @@ const DARK = '#080808'
 const BORDER = '#1E1E1E'
 
 const navItems = [
-  { label: 'Dashboard',  path: '/dashboard',            icon: '▦'  },
-  { label: 'Properties', path: '/dashboard/properties', icon: '🏠' },
-  { label: 'Tenants',    path: '/dashboard/clients',    icon: '👤' },
-  { label: 'Documents',  path: '/dashboard/documents',  icon: '📄' },
-  { label: 'Calendar',   path: '/dashboard/calendar',   icon: '📅' },
-  { label: 'Vault',      path: '/dashboard/vault',      icon: '🔒' },
-  { label: 'Reports',    path: '/dashboard/reports',    icon: '📊' },
-  { label: 'Settings',   path: '/dashboard/settings',   icon: '⚙️' },
+  { label: 'Dashboard',   path: '/dashboard',              icon: '▦'  },
+  { label: 'Properties',  path: '/dashboard/properties',   icon: '🏠' },
+  { label: 'Tenants',     path: '/dashboard/clients',      icon: '👤' },
+  { label: 'Inspections', path: '/dashboard/inspections',  icon: '📝' },
+  { label: 'Documents',   path: '/dashboard/documents',    icon: '📄' },
+  { label: 'Calendar',    path: '/dashboard/calendar',     icon: '📅' },
+  { label: 'Vault',       path: '/dashboard/vault',        icon: '🔒' },
+  { label: 'Reports',     path: '/dashboard/reports',      icon: '📊' },
+  { label: 'Settings',    path: '/dashboard/settings',     icon: '⚙️' },
 ]
 
 function SidebarContent() {
