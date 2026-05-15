@@ -634,7 +634,7 @@ const styles: Record<string, React.CSSProperties> = {
   heroContent: { position: 'relative', zIndex: 3, textAlign: 'center', maxWidth: '860px', padding: '0 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '28px', marginTop: '-60px' },
   heroBadge: { display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 16px', borderRadius: '999px', border: '1px solid #C9963F55', background: '#C9963F14', fontSize: '11px', fontWeight: '600', letterSpacing: '0.08em', color: '#C9963F' },
   heroBadgeDot: { width: '6px', height: '6px', borderRadius: '50%', background: GOLD, boxShadow: `0 0 10px ${GOLD}`, display: 'inline-block' },
-  heroTitle: { fontFamily: 'var(--font-playfair), Georgia, serif', fontSize: 'clamp(44px, 7vw, 82px)', fontWeight: '700', lineHeight: '1.1', color: '#F5F5F5', margin: 0, letterSpacing: '-0.02em', textShadow: '0 2px 40px rgba(0,0,0,0.9)' },
+  heroTitle: { fontFamily: 'var(--font-display), Georgia, serif', fontSize: 'clamp(44px, 7vw, 82px)', fontWeight: '700', lineHeight: '1.1', color: '#F5F5F5', margin: 0, letterSpacing: '-0.01em', textShadow: '0 2px 40px rgba(0,0,0,0.9)' },
   heroTitleItalic: { fontStyle: 'italic', color: GOLD },
   heroSub: { fontSize: '17px', lineHeight: '1.7', color: '#AAAABB', maxWidth: '580px', margin: 0, textShadow: '0 2px 20px rgba(0,0,0,0.9)' },
   heroCTAs: { display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' },
