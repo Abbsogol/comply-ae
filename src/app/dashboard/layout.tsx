@@ -10,18 +10,18 @@ const DARK = '#080808'
 const BORDER = '#1E1E1E'
 
 const navItems = [
-  { label: 'Dashboard',   path: '/dashboard',              icon: '▦'  },
-  { label: 'Properties',  path: '/dashboard/properties',   icon: '🏠' },
-  { label: 'Tenants',     path: '/dashboard/clients',      icon: '👤' },
-  { label: 'Inspections', path: '/dashboard/inspections',  icon: '📝' },
-  { label: 'Maintenance', path: '/dashboard/maintenance',  icon: '🔧' },
-  { label: 'Services',    path: '/dashboard/services',     icon: '🧹' },
-  { label: 'Rent',        path: '/dashboard/rent',         icon: '💰' },
-  { label: 'Documents',   path: '/dashboard/documents',    icon: '📄' },
-  { label: 'Calendar',    path: '/dashboard/calendar',     icon: '📅' },
-  { label: 'Vault',       path: '/dashboard/vault',        icon: '🔒' },
-  { label: 'Reports',     path: '/dashboard/reports',      icon: '📊' },
-  { label: 'Settings',    path: '/dashboard/settings',     icon: '⚙️' },
+  { label: 'Dashboard',   path: '/dashboard',              icon: '▦',  tour: 'nav-dashboard'   },
+  { label: 'Properties',  path: '/dashboard/properties',   icon: '🏠', tour: 'nav-properties'  },
+  { label: 'Tenants',     path: '/dashboard/clients',      icon: '👤', tour: 'nav-tenants'     },
+  { label: 'Inspections', path: '/dashboard/inspections',  icon: '📝', tour: 'nav-inspections' },
+  { label: 'Maintenance', path: '/dashboard/maintenance',  icon: '🔧', tour: 'nav-maintenance' },
+  { label: 'Services',    path: '/dashboard/services',     icon: '🧹', tour: 'nav-services'    },
+  { label: 'Rent',        path: '/dashboard/rent',         icon: '💰', tour: 'nav-rent'        },
+  { label: 'Documents',   path: '/dashboard/documents',    icon: '📄', tour: 'nav-documents'   },
+  { label: 'Calendar',    path: '/dashboard/calendar',     icon: '📅', tour: 'nav-calendar'    },
+  { label: 'Vault',       path: '/dashboard/vault',        icon: '🔒', tour: 'nav-vault'       },
+  { label: 'Reports',     path: '/dashboard/reports',      icon: '📊', tour: 'nav-reports'     },
+  { label: 'Settings',    path: '/dashboard/settings',     icon: '⚙️', tour: 'nav-settings'   },
 ]
 
 function SidebarContent() {
@@ -85,6 +85,7 @@ function SidebarContent() {
           return (
             <button
               key={item.path}
+              data-tour={item.tour}
               onClick={() => router.push(item.path)}
               style={{
                 display: 'flex', alignItems: 'center', gap: '10px',

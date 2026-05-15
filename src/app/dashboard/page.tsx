@@ -146,7 +146,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1px', background: BORDER, borderRadius: '12px', overflow: 'hidden', marginBottom: '28px' }}>
+      <div data-tour="stat-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1px', background: BORDER, borderRadius: '12px', overflow: 'hidden', marginBottom: '28px' }}>
         {[
           { label: 'Total Properties',  value: total,       color: '#F5F5F5', sub: 'in your portfolio'    },
           { label: 'Occupied',          value: occupied,    color: '#4ade80', sub: 'generating rent'      },
@@ -188,7 +188,7 @@ export default function DashboardPage() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '28px' }}>
 
         {/* Ejari Alerts */}
-        <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '24px' }}>
+        <div data-tour="ejari-alerts" style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '18px' }}>
             <span style={{ fontSize: '15px' }}>🗓️</span>
             <h3 style={{ fontSize: '13px', fontWeight: '700', color: '#F5F5F5', margin: 0 }}>Ejari Alerts</h3>
