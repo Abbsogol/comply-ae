@@ -10,26 +10,24 @@ export default function AuthComplete() {
   const router = useRouter()
 
   useEffect(() => {
-    const exchange = async () => {
-      // Read code directly from the URL (avoids Suspense requirement)
-      const params = new URLSearchParams(window.location.search)
-      const code = params.get('code')
-
-      if (code) {
-        await supabase.auth.exchangeCodeForSession(code)
-      }
-
-      // Confirm session exists before navigating
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
+    // With implicit flow, Supabase auto-extracts tokens from the URL hash.
+    // We listen for the SIGNED_IN event and redirect once the session is ready.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN') {
+        subscription.unsubscribe()
         router.replace('/dashboard')
-      } else {
-        // Exchange may have failed — send back to login
-        router.replace('/login')
       }
-    }
+    })
 
-    exchange()
+    // Fallback: if already signed in (e.g. session already in storage), go now.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        subscription.unsubscribe()
+        router.replace('/dashboard')
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [router])
 
   return (
@@ -42,11 +40,9 @@ export default function AuthComplete() {
       margin: 0,
       fontFamily: 'system-ui, sans-serif',
     }}>
-      <div style={{ textAlign: 'center' }}>
-        <p style={{ color: GOLD, fontSize: '15px', opacity: 0.8, margin: 0 }}>
-          Signing you in…
-        </p>
-      </div>
+      <p style={{ color: GOLD, fontSize: '15px', opacity: 0.8 }}>
+        Signing you in…
+      </p>
     </div>
   )
 }
