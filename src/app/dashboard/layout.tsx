@@ -41,7 +41,7 @@ function SidebarContent() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
-    router.push('/login')
+    router.push('/')
   }
 
   const isActive = (path: string) => {
