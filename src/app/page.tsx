@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 // ─── Hero Video ───────────────────────────────────────────────────────────────
-const HERO_SRC = '/hero2.mp4'
+const HERO_SRC = '/hero2_opt.mp4'
 
 function HeroCanvas() {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -26,12 +26,12 @@ function HeroCanvas() {
         src={HERO_SRC}
         autoPlay muted loop playsInline
         preload="auto"
-        onCanPlay={() => setVideoReady(true)}
+        onLoadedData={() => setVideoReady(true)}
         style={{
           position: 'absolute', inset: 0, width: '100%', height: '100%',
           objectFit: 'cover', objectPosition: 'center center', zIndex: 0,
           opacity: videoReady ? 1 : 0,
-          transition: 'opacity 1.2s ease',
+          transition: 'opacity 0.5s ease',
         }}
       />
       <div style={{ position: 'absolute', inset: 0, zIndex: 1, background: 'linear-gradient(to bottom, rgba(3,3,10,0.68) 0%, rgba(3,3,10,0.28) 28%, rgba(3,3,10,0.38) 62%, rgba(8,8,8,0.92) 100%)' }} />

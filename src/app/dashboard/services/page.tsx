@@ -26,112 +26,173 @@ const CATEGORIES: Category[] = [
     description: 'Scheduled home cleaning, end-of-tenancy deep cleans, and move-in preparation.',
     providers: [
       {
-        name: 'Helpling',
-        tagline: 'On-demand home cleaning. Book by the hour, vetted professionals.',
-        priceRange: 'From AED 50/hr',
-        url: 'https://www.helpling.ae',
+        name: 'ServiceMarket',
+        tagline: 'Compare quotes from vetted cleaning companies across Dubai. Book instantly online.',
+        priceRange: 'From AED 35/hr',
+        url: 'https://servicemarket.com/en/dubai/cleaning-maid-services',
+        badge: 'Marketplace',
+        badgeColor: '#60a5fa',
+      },
+      {
+        name: 'Urban Company',
+        tagline: 'On-demand home cleaning with background-verified professionals. App-based booking.',
+        priceRange: 'From AED 40/hr',
+        url: 'https://www.urbancompany.com/dubai-maid-service',
         badge: 'Popular',
         badgeColor: GOLD,
       },
       {
-        name: 'Justmop',
-        tagline: 'Regular cleaning, deep cleans, and move-in/move-out packages.',
-        priceRange: 'From AED 45/hr',
-        url: 'https://www.justmop.com',
-      },
-      {
-        name: 'ServiceMarket',
-        tagline: 'Compare quotes from vetted cleaning companies across Dubai.',
-        url: 'https://www.servicemarket.com/cleaning',
-        badge: 'Marketplace',
-        badgeColor: '#60a5fa',
+        name: 'Helpling',
+        tagline: 'Hourly home cleaning with flexible scheduling. Vetted, insured professionals.',
+        priceRange: 'From AED 37/hr',
+        url: 'https://www.helpling.ae/cleaning-services/dubai',
       },
     ],
   },
   {
     icon: '❄️',
     title: 'AC Cleaning & Servicing',
-    description: 'AC duct cleaning, filter replacement, and annual servicing — essential in Dubai.',
+    description: 'AC duct cleaning, filter replacement, coil cleaning, and annual servicing — essential every 6–12 months in Dubai.',
     providers: [
       {
+        name: 'Urban Company — AC',
+        tagline: 'Trained AC technicians for split unit cleaning, duct servicing, and repair.',
+        priceRange: 'AED 180–350 per unit',
+        url: 'https://www.urbancompany.com/dubai-ac-service-repair',
+        badge: 'Popular',
+        badgeColor: GOLD,
+      },
+      {
         name: 'ServiceMarket — AC',
-        tagline: 'Get quotes from multiple AC service providers. Compare and book.',
-        url: 'https://www.servicemarket.com/ac-maintenance',
+        tagline: 'Compare multiple AC service providers. Duct cleaning, coil servicing, chemical wash.',
+        priceRange: 'AED 180–600 per unit',
+        url: 'https://servicemarket.com/en/dubai/ac-cleaning',
         badge: 'Marketplace',
         badgeColor: '#60a5fa',
       },
       {
-        name: 'Justmop — AC',
-        tagline: 'AC duct cleaning and filter servicing packages.',
-        url: 'https://www.justmop.com/ac-cleaning',
+        name: 'The Healthy Home',
+        tagline: 'Specialist AC duct hygiene and deep cleaning. Allergy and air quality focused.',
+        priceRange: 'AED 500–1,500 (system)',
+        url: 'https://thehealthyhome.me/en/ae/services/ac-cleaning-services',
+        badge: 'Specialist',
+        badgeColor: '#4ade80',
       },
     ],
   },
   {
     icon: '🐛',
     title: 'Pest Control',
-    description: 'Cockroach, rodent, bedbugs, and general pest treatments for residential units.',
+    description: 'Cockroach, rodent, bed bug, and general pest treatments. Dubai Municipality-approved providers.',
     providers: [
       {
-        name: 'Rentokil Initial',
-        tagline: 'Global pest control leader. Residential treatments across the UAE.',
-        url: 'https://www.rentokil.ae',
+        name: 'ServiceMarket — Pest',
+        tagline: 'Compare licensed pest control companies. Studio to villa packages, warranties included.',
+        priceRange: 'AED 149–299 per treatment',
+        url: 'https://servicemarket.com/en/dubai/pest-control-companies',
+        badge: 'Marketplace',
+        badgeColor: '#60a5fa',
+      },
+      {
+        name: 'ProShield',
+        tagline: 'DM-approved pest control. Residential and commercial. Disinfection services also available.',
+        priceRange: 'AED 250 (apt) / AED 450 (villa)',
+        url: 'https://www.proshield.ae',
         badge: 'Specialist',
         badgeColor: '#4ade80',
       },
       {
-        name: 'ServiceMarket — Pest',
-        tagline: 'Compare pest control companies. One-off and scheduled treatments.',
-        url: 'https://www.servicemarket.com/pest-control',
-        badge: 'Marketplace',
-        badgeColor: '#60a5fa',
+        name: 'Saniservice',
+        tagline: 'Established Dubai pest control company. Annual contracts and one-off treatments.',
+        priceRange: 'AED 999–2,999/year (contract)',
+        url: 'https://saniservice.com',
       },
     ],
   },
   {
     icon: '🔌',
     title: 'Handyman & General Repairs',
-    description: 'Plumbing, electrical, painting, and general fix-it jobs between tenancies.',
+    description: 'Plumbing, electrical, painting, and general fix-it jobs between tenancies or during occupancy.',
     providers: [
       {
         name: 'ServiceMarket — Handyman',
-        tagline: 'Book vetted handymen for any job. Flat rates or hourly.',
-        url: 'https://www.servicemarket.com/handyman',
+        tagline: 'Book vetted handymen for any job. Flat rates or hourly. Same-day availability.',
+        priceRange: 'From AED 79/hr',
+        url: 'https://servicemarket.com/en/dubai/maintenance-handyman-companies',
         badge: 'Marketplace',
         badgeColor: '#60a5fa',
       },
       {
-        name: 'Justmop — Handyman',
-        tagline: 'Trusted handyman services alongside cleaning packages.',
-        url: 'https://www.justmop.com/handyman',
+        name: 'Urban Company — Handyman',
+        tagline: 'Trained and background-checked handymen. Plumbing, electrical, painting, assembly.',
+        priceRange: 'AED 75–150/hr',
+        url: 'https://www.urbancompany.com/dubai-handyman',
+        badge: 'Popular',
+        badgeColor: GOLD,
+      },
+      {
+        name: 'We Will Fix It',
+        tagline: 'Full-service maintenance company. Ideal for larger jobs and recurring property upkeep.',
+        priceRange: 'From AED 250/visit',
+        url: 'https://www.wewillfixit.com/services/handyman',
       },
     ],
   },
   {
     icon: '🚚',
-    title: 'Moving & Furniture',
-    description: 'Tenant move-in/move-out logistics, furniture assembly, and storage.',
+    title: 'Moving & Relocation',
+    description: 'Tenant move-in and move-out logistics, furniture assembly, packing, and storage.',
     providers: [
       {
-        name: 'ServiceMarket — Movers',
-        tagline: 'Compare moving companies across Dubai. Fully insured movers.',
-        url: 'https://www.servicemarket.com/movers',
+        name: 'MoveConnector',
+        tagline: 'Get up to 5 free quotes from pre-screened Dubai movers. Compare, then book.',
+        priceRange: '1BHK from AED 1,000',
+        url: 'https://moveconnector.com',
         badge: 'Marketplace',
         badgeColor: '#60a5fa',
+      },
+      {
+        name: 'Trukker (Logisty)',
+        tagline: 'App-based moving platform backed by RTA. Real-time tracking, transparent pricing.',
+        priceRange: 'Studio from AED 700',
+        url: 'https://trukker.com/home-moving',
+        badge: 'Popular',
+        badgeColor: GOLD,
+      },
+      {
+        name: 'ServiceMarket — Movers',
+        tagline: 'Compare licensed and insured moving companies in Dubai. Free instant quotes.',
+        priceRange: 'Studio from AED 700',
+        url: 'https://servicemarket.com/en/dubai/local-movers',
       },
     ],
   },
   {
     icon: '🏊',
     title: 'Pool & Outdoor Maintenance',
-    description: 'Pool cleaning, garden maintenance, and outdoor upkeep for villas and townhouses.',
+    description: 'Pool cleaning, water balancing, equipment checks, and garden upkeep for villas and townhouses.',
     providers: [
       {
         name: 'ServiceMarket — Pool',
-        tagline: 'Find pool cleaning and maintenance professionals in Dubai.',
-        url: 'https://www.servicemarket.com/pool-cleaning',
+        tagline: 'Compare pool cleaning and maintenance professionals in Dubai. One-off or monthly.',
+        priceRange: 'One-time from AED 250',
+        url: 'https://servicemarket.com/en/dubai/pool-cleaning',
         badge: 'Marketplace',
         badgeColor: '#60a5fa',
+      },
+      {
+        name: 'Dubai Pool Care',
+        tagline: 'Dedicated residential pool maintenance. Weekly visits, chemical balancing, repairs.',
+        priceRange: 'AED 1,000–2,000/month',
+        url: 'https://www.dubaipoolcare.com',
+        badge: 'Specialist',
+        badgeColor: '#4ade80',
+      },
+      {
+        name: 'Total Pools Dubai',
+        tagline: 'Full-service pool maintenance and renovation. Residential and community pools.',
+        priceRange: 'AED 1,500–3,000/month',
+        url: 'https://www.totalpoolsdubai.com',
       },
     ],
   },
@@ -152,7 +213,7 @@ export default function ServicesPage() {
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 14px', backgroundColor: `${GOLD}10`, border: `1px solid ${GOLD}33`, borderRadius: '8px' }}>
           <span style={{ fontSize: '14px' }}>💡</span>
           <p style={{ color: '#888', fontSize: '12px', margin: 0 }}>
-            These are independently verified Dubai providers. COMPLY.AE has no affiliate relationship with any of them.
+            Researched providers with verified websites and real Dubai market pricing. COMPLY.AE has no affiliate relationship with any of them. Always confirm pricing directly with the provider.
           </p>
         </div>
       </div>
@@ -232,8 +293,7 @@ export default function ServicesPage() {
       {/* Footer note */}
       <div style={{ marginTop: '40px', padding: '20px 24px', backgroundColor: '#0D0D0D', border: `1px solid ${BORDER}`, borderRadius: '10px' }}>
         <p style={{ color: '#333', fontSize: '12px', margin: 0, lineHeight: '1.6' }}>
-          Know a good service provider we should add? This directory will grow over time.
-          Prices shown are approximate and subject to change — always confirm directly with the provider.
+          Pricing ranges are based on Dubai market research (2025–2026) and are approximate. Final prices depend on property size, service scope, and provider availability. Always request a formal quote before booking. Know a provider we should add? This directory will grow over time.
         </p>
       </div>
     </div>

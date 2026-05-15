@@ -85,6 +85,11 @@ export default function VaultPage() {
   })
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
+  const [editingDoc, setEditingDoc] = useState<PropertyDoc | null>(null)
+  const [editExpiry, setEditExpiry] = useState('')
+  const [editNotes, setEditNotes]   = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+
   const loadDocs = async () => {
     let query = supabase
       .from('property_documents')
@@ -183,6 +188,23 @@ export default function VaultPage() {
     await supabase.storage.from('documents').remove([doc.file_path])
     await supabase.from('property_documents').delete().eq('id', doc.id)
     setDocs(prev => prev.filter(d => d.id !== doc.id))
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingDoc) return
+    setEditSaving(true)
+    const { error } = await supabase
+      .from('property_documents')
+      .update({ expiry_date: editExpiry || null, notes: editNotes.trim() || null })
+      .eq('id', editingDoc.id)
+    if (!error) {
+      setDocs(prev => prev.map(d => d.id === editingDoc.id
+        ? { ...d, expiry_date: editExpiry || null, notes: editNotes.trim() || null }
+        : d
+      ))
+      setEditingDoc(null)
+    }
+    setEditSaving(false)
   }
 
   const needsExpiry = (type: string) => type === 'insurance' || type === 'noc'
@@ -307,6 +329,10 @@ export default function VaultPage() {
                           style={{ padding: '5px 12px', backgroundColor: `${GOLD}18`, color: GOLD, border: `1px solid ${GOLD}33`, borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
                           View
                         </button>
+                        <button onClick={() => { setEditingDoc(doc); setEditExpiry(doc.expiry_date || ''); setEditNotes(doc.notes || '') }}
+                          style={{ padding: '5px 10px', backgroundColor: 'transparent', color: '#888', border: `1px solid ${BORDER}`, borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>
+                          Edit
+                        </button>
                         <button onClick={() => handleDelete(doc)}
                           style={{ padding: '5px 10px', backgroundColor: 'transparent', color: '#333', border: `1px solid ${BORDER}`, borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>
                           ✕
@@ -320,6 +346,44 @@ export default function VaultPage() {
           </table>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {editingDoc && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+          <div style={{ backgroundColor: '#0D0D0D', border: `1px solid ${BORDER}`, borderRadius: '14px', padding: '32px', width: '100%', maxWidth: '440px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <h3 style={{ color: '#F5F5F5', fontSize: '18px', fontWeight: '700', margin: 0, fontFamily: 'var(--font-playfair), Georgia, serif' }}>Edit Document</h3>
+              <button onClick={() => setEditingDoc(null)}
+                style={{ background: 'none', border: 'none', color: '#555', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}>✕</button>
+            </div>
+            <p style={{ color: '#444', fontSize: '13px', margin: '0 0 24px 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{editingDoc.file_name}</p>
+
+            <div style={{ marginBottom: '16px' }}>
+              <p style={{ color: '#888', fontSize: '12px', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase', margin: '0 0 6px 0' }}>Expiry Date</p>
+              <input type="date" value={editExpiry} onChange={e => setEditExpiry(e.target.value)}
+                style={{ width: '100%', padding: '10px 12px', backgroundColor: '#080808', border: `1px solid ${BORDER}`, borderRadius: '7px', color: '#F5F5F5', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+
+            <div style={{ marginBottom: '24px' }}>
+              <p style={{ color: '#888', fontSize: '12px', fontWeight: '600', letterSpacing: '0.04em', textTransform: 'uppercase', margin: '0 0 6px 0' }}>Notes</p>
+              <textarea value={editNotes} onChange={e => setEditNotes(e.target.value)}
+                rows={3} placeholder="Policy number, issuing authority..."
+                style={{ width: '100%', padding: '10px 12px', backgroundColor: '#080808', border: `1px solid ${BORDER}`, borderRadius: '7px', color: '#F5F5F5', fontSize: '14px', outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }} />
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button onClick={handleSaveEdit} disabled={editSaving}
+                style={{ flex: 1, padding: '11px', backgroundColor: GOLD, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: editSaving ? 'not-allowed' : 'pointer', opacity: editSaving ? 0.7 : 1 }}>
+                {editSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+              <button onClick={() => setEditingDoc(null)}
+                style={{ padding: '11px 20px', backgroundColor: 'transparent', color: '#555', border: `1px solid ${BORDER}`, borderRadius: '8px', fontSize: '14px', cursor: 'pointer' }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Upload Modal */}
       {showModal && (

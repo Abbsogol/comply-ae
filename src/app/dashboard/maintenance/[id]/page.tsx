@@ -87,6 +87,13 @@ export default function MaintenanceDetailPage() {
 
   const [saving, setSaving] = useState(false)
 
+  // Edit details state
+  const [editingDetails, setEditingDetails]   = useState(false)
+  const [editTitle, setEditTitle]             = useState('')
+  const [editCategory, setEditCategory]       = useState('')
+  const [editPriority, setEditPriority]       = useState('')
+  const [editDescription, setEditDescription] = useState('')
+
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -105,6 +112,10 @@ export default function MaintenanceDetailPage() {
       setNewActualCost(data.actual_cost?.toString() || '')
       setNewNotes(data.notes || '')
       setNewAssigned(data.assigned_to || '')
+      setEditTitle(data.title || '')
+      setEditCategory(data.category || '')
+      setEditPriority(data.priority || 'medium')
+      setEditDescription(data.description || '')
       setLoading(false)
     }
     load()
@@ -142,6 +153,17 @@ export default function MaintenanceDetailPage() {
   const saveAssigned = async () => {
     const ok = await save({ assigned_to: newAssigned.trim() || null })
     if (ok) setEditingAssigned(false)
+  }
+
+  const saveDetails = async () => {
+    if (!editTitle.trim()) { alert('Title is required.'); return }
+    const ok = await save({
+      title:       editTitle.trim(),
+      category:    editCategory || null,
+      priority:    editPriority,
+      description: editDescription.trim() || null,
+    })
+    if (ok) setEditingDetails(false)
   }
 
   const inputStyle = {
@@ -197,65 +219,122 @@ export default function MaintenanceDetailPage() {
 
           {/* Details card */}
           <div style={{ backgroundColor: '#0D0D0D', border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '24px', marginBottom: '16px' }}>
-            <p style={{ color: GOLD, fontSize: '11px', fontWeight: '700', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 20px 0' }}>Details</p>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-              <div>
-                <Label>Category</Label>
-                <Value>{CATEGORY_LABELS[req.category || ''] || req.category || '—'}</Value>
-              </div>
-              <div>
-                <Label>Property</Label>
-                {propName
-                  ? <p style={{ color: GOLD, fontSize: '14px', margin: 0, cursor: 'pointer' }}
-                      onClick={() => req.property_id && router.push(`/dashboard/properties/${req.property_id}`)}>
-                      {propName}
-                    </p>
-                  : <Value>—</Value>
-                }
-              </div>
-              <div>
-                <Label>Date Reported</Label>
-                <Value>{req.reported_date ? new Date(req.reported_date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</Value>
-              </div>
-              <div>
-                <Label>Date Resolved</Label>
-                <Value>{req.resolved_date ? new Date(req.resolved_date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</Value>
-              </div>
-              <div>
-                <Label>Estimated Cost</Label>
-                <Value>{req.estimated_cost ? `AED ${req.estimated_cost.toLocaleString()}` : '—'}</Value>
-              </div>
-              <div>
-                <Label>Actual Cost</Label>
-                {editingCost ? (
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input type="number" value={newActualCost} onChange={e => setNewActualCost(e.target.value)}
-                      placeholder="0" style={{ ...inputStyle, width: '100px' }} />
-                    <button onClick={saveCost} disabled={saving}
-                      style={{ padding: '6px 12px', backgroundColor: GOLD, color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>
-                      Save
-                    </button>
-                    <button onClick={() => setEditingCost(false)}
-                      style={{ padding: '6px 10px', backgroundColor: 'transparent', color: '#555', border: `1px solid ${BORDER}`, borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>
-                      ✕
-                    </button>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <Value>{req.actual_cost ? `AED ${req.actual_cost.toLocaleString()}` : '—'}</Value>
-                    <button onClick={() => setEditingCost(true)}
-                      style={{ background: 'none', border: 'none', color: '#444', fontSize: '11px', cursor: 'pointer', padding: 0 }}>Edit</button>
-                  </div>
-                )}
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <p style={{ color: GOLD, fontSize: '11px', fontWeight: '700', letterSpacing: '0.08em', textTransform: 'uppercase', margin: 0 }}>Details</p>
+              {!editingDetails && (
+                <button onClick={() => setEditingDetails(true)}
+                  style={{ background: 'none', border: 'none', color: '#444', fontSize: '12px', cursor: 'pointer' }}>Edit</button>
+              )}
             </div>
 
-            {req.description && (
-              <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: `1px solid ${BORDER}` }}>
-                <Label>Description</Label>
-                <p style={{ color: '#888', fontSize: '14px', margin: 0, lineHeight: '1.6' }}>{req.description}</p>
+            {editingDetails ? (
+              <div>
+                <div style={{ marginBottom: '16px' }}>
+                  <Label>Title</Label>
+                  <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
+                    placeholder="Request title"
+                    style={{ ...inputStyle, width: '100%', boxSizing: 'border-box' }} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                  <div>
+                    <Label>Category</Label>
+                    <select value={editCategory} onChange={e => setEditCategory(e.target.value)}
+                      style={{ ...inputStyle, width: '100%' }}>
+                      <option value="">— None —</option>
+                      {Object.entries(CATEGORY_LABELS).map(([val, label]) => (
+                        <option key={val} value={val}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label>Priority</Label>
+                    <select value={editPriority} onChange={e => setEditPriority(e.target.value)}
+                      style={{ ...inputStyle, width: '100%' }}>
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                      <option value="urgent">Urgent</option>
+                    </select>
+                  </div>
+                </div>
+                <div style={{ marginBottom: '16px' }}>
+                  <Label>Description</Label>
+                  <textarea value={editDescription} onChange={e => setEditDescription(e.target.value)}
+                    rows={3} placeholder="Describe the issue..."
+                    style={{ ...inputStyle, width: '100%', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={saveDetails} disabled={saving}
+                    style={{ padding: '8px 16px', backgroundColor: GOLD, color: '#fff', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>
+                    {saving ? 'Saving…' : 'Save'}
+                  </button>
+                  <button onClick={() => { setEditingDetails(false); setEditTitle(req?.title || ''); setEditCategory(req?.category || ''); setEditPriority(req?.priority || 'medium'); setEditDescription(req?.description || '') }}
+                    style={{ padding: '8px 12px', backgroundColor: 'transparent', color: '#555', border: `1px solid ${BORDER}`, borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>
+                    Cancel
+                  </button>
+                </div>
               </div>
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                  <div>
+                    <Label>Category</Label>
+                    <Value>{CATEGORY_LABELS[req.category || ''] || req.category || '—'}</Value>
+                  </div>
+                  <div>
+                    <Label>Property</Label>
+                    {propName
+                      ? <p style={{ color: GOLD, fontSize: '14px', margin: 0, cursor: 'pointer' }}
+                          onClick={() => req.property_id && router.push(`/dashboard/properties/${req.property_id}`)}>
+                          {propName}
+                        </p>
+                      : <Value>—</Value>
+                    }
+                  </div>
+                  <div>
+                    <Label>Date Reported</Label>
+                    <Value>{req.reported_date ? new Date(req.reported_date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</Value>
+                  </div>
+                  <div>
+                    <Label>Date Resolved</Label>
+                    <Value>{req.resolved_date ? new Date(req.resolved_date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</Value>
+                  </div>
+                  <div>
+                    <Label>Estimated Cost</Label>
+                    <Value>{req.estimated_cost ? `AED ${req.estimated_cost.toLocaleString()}` : '—'}</Value>
+                  </div>
+                  <div>
+                    <Label>Actual Cost</Label>
+                    {editingCost ? (
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input type="number" value={newActualCost} onChange={e => setNewActualCost(e.target.value)}
+                          placeholder="0" style={{ ...inputStyle, width: '100px' }} />
+                        <button onClick={saveCost} disabled={saving}
+                          style={{ padding: '6px 12px', backgroundColor: GOLD, color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>
+                          Save
+                        </button>
+                        <button onClick={() => setEditingCost(false)}
+                          style={{ padding: '6px 10px', backgroundColor: 'transparent', color: '#555', border: `1px solid ${BORDER}`, borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <Value>{req.actual_cost ? `AED ${req.actual_cost.toLocaleString()}` : '—'}</Value>
+                        <button onClick={() => setEditingCost(true)}
+                          style={{ background: 'none', border: 'none', color: '#444', fontSize: '11px', cursor: 'pointer', padding: 0 }}>Edit</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {req.description && (
+                  <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: `1px solid ${BORDER}` }}>
+                    <Label>Description</Label>
+                    <p style={{ color: '#888', fontSize: '14px', margin: 0, lineHeight: '1.6' }}>{req.description}</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
 

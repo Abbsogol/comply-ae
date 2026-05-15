@@ -65,6 +65,16 @@ function Value({ children }: { children: React.ReactNode }) {
 const fmtDate = (d: string | null) =>
   d ? new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
 
+function getPeriodOptions() {
+  const options = []
+  const now = new Date()
+  for (let i = -12; i <= 3; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1)
+    options.push(d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }))
+  }
+  return options.reverse()
+}
+
 export default function RentDetailPage() {
   const router = useRouter()
   const params = useParams()
@@ -81,6 +91,12 @@ export default function RentDetailPage() {
   const [newMethod, setNewMethod]           = useState('bank_transfer')
   const [newCheque, setNewCheque]           = useState('')
   const [newRef, setNewRef]                 = useState('')
+
+  // Edit details
+  const [editingDetails, setEditingDetails] = useState(false)
+  const [editPeriod, setEditPeriod]         = useState('')
+  const [editExpected, setEditExpected]     = useState('')
+  const [editDueDate, setEditDueDate]       = useState('')
 
   // Notes
   const [editingNotes, setEditingNotes] = useState(false)
@@ -106,6 +122,9 @@ export default function RentDetailPage() {
       setNewCheque(data.cheque_number || '')
       setNewRef(data.reference_number || '')
       setNewNotes(data.notes || '')
+      setEditPeriod(data.period_label || '')
+      setEditExpected(data.expected_amount?.toString() || '')
+      setEditDueDate(data.due_date || '')
       setLoading(false)
     }
     load()
@@ -132,6 +151,20 @@ export default function RentDetailPage() {
     if (!error && payment) setPayment({ ...payment, notes: newNotes.trim() || null })
     setSaving(false)
     setEditingNotes(false)
+  }
+
+  const saveDetails = async () => {
+    if (!editExpected) { alert('Expected amount is required.'); return }
+    setSaving(true)
+    const updates = {
+      period_label:    editPeriod || null,
+      expected_amount: parseFloat(editExpected),
+      due_date:        editDueDate || null,
+    }
+    const { error } = await supabase.from('rent_payments').update(updates).eq('id', id)
+    if (!error && payment) setPayment({ ...payment, ...updates })
+    setSaving(false)
+    setEditingDetails(false)
   }
 
   const inputStyle = {
@@ -182,48 +215,85 @@ export default function RentDetailPage() {
         <div>
           {/* Details */}
           <div style={{ backgroundColor: '#0D0D0D', border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '24px', marginBottom: '16px' }}>
-            <p style={{ color: GOLD, fontSize: '11px', fontWeight: '700', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 20px 0' }}>Payment Details</p>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-              <div>
-                <Label>Expected Amount</Label>
-                <p style={{ color: '#F5F5F5', fontSize: '20px', fontWeight: '700', margin: 0 }}>
-                  {payment.expected_amount ? `AED ${payment.expected_amount.toLocaleString()}` : '—'}
-                </p>
-              </div>
-              <div>
-                <Label>Amount Paid</Label>
-                <p style={{ color: payment.paid_amount ? '#4ade80' : '#333', fontSize: '20px', fontWeight: '700', margin: 0 }}>
-                  {payment.paid_amount ? `AED ${payment.paid_amount.toLocaleString()}` : '—'}
-                </p>
-              </div>
-              {balance > 0 && payment.status !== 'paid' && (
-                <div>
-                  <Label>Outstanding Balance</Label>
-                  <p style={{ color: '#ef4444', fontSize: '16px', fontWeight: '700', margin: 0 }}>
-                    AED {balance.toLocaleString()}
-                  </p>
-                </div>
-              )}
-              <div>
-                <Label>Due Date</Label>
-                <Value>{fmtDate(payment.due_date)}</Value>
-              </div>
-              <div>
-                <Label>Payment Date</Label>
-                <Value>{fmtDate(payment.payment_date)}</Value>
-              </div>
-              <div>
-                <Label>Payment Method</Label>
-                <Value>{METHOD_LABELS[payment.payment_method || ''] || payment.payment_method || '—'}</Value>
-              </div>
-              {(payment.cheque_number || payment.reference_number) && (
-                <div>
-                  <Label>{payment.cheque_number ? 'Cheque Number' : 'Reference'}</Label>
-                  <Value>{payment.cheque_number || payment.reference_number}</Value>
-                </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <p style={{ color: GOLD, fontSize: '11px', fontWeight: '700', letterSpacing: '0.08em', textTransform: 'uppercase', margin: 0 }}>Payment Details</p>
+              {!editingDetails && (
+                <button onClick={() => setEditingDetails(true)}
+                  style={{ background: 'none', border: 'none', color: '#444', fontSize: '12px', cursor: 'pointer' }}>Edit</button>
               )}
             </div>
+
+            {editingDetails ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div>
+                  <Label>Period</Label>
+                  <select value={editPeriod} onChange={e => setEditPeriod(e.target.value)} style={inputStyle}>
+                    <option value="">— Select period —</option>
+                    {getPeriodOptions().map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <Label>Expected Amount (AED) *</Label>
+                  <input type="number" value={editExpected} onChange={e => setEditExpected(e.target.value)}
+                    placeholder="e.g. 7500" style={inputStyle} />
+                </div>
+                <div>
+                  <Label>Due Date</Label>
+                  <input type="date" value={editDueDate} onChange={e => setEditDueDate(e.target.value)} style={inputStyle} />
+                </div>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                  <button onClick={saveDetails} disabled={saving}
+                    style={{ padding: '8px 16px', backgroundColor: GOLD, color: '#fff', border: 'none', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>
+                    {saving ? 'Saving...' : 'Save'}
+                  </button>
+                  <button onClick={() => setEditingDetails(false)}
+                    style={{ padding: '8px 12px', backgroundColor: 'transparent', color: '#555', border: `1px solid ${BORDER}`, borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                <div>
+                  <Label>Expected Amount</Label>
+                  <p style={{ color: '#F5F5F5', fontSize: '20px', fontWeight: '700', margin: 0 }}>
+                    {payment.expected_amount ? `AED ${payment.expected_amount.toLocaleString()}` : '—'}
+                  </p>
+                </div>
+                <div>
+                  <Label>Amount Paid</Label>
+                  <p style={{ color: payment.paid_amount ? '#4ade80' : '#333', fontSize: '20px', fontWeight: '700', margin: 0 }}>
+                    {payment.paid_amount ? `AED ${payment.paid_amount.toLocaleString()}` : '—'}
+                  </p>
+                </div>
+                {balance > 0 && payment.status !== 'paid' && (
+                  <div>
+                    <Label>Outstanding Balance</Label>
+                    <p style={{ color: '#ef4444', fontSize: '16px', fontWeight: '700', margin: 0 }}>
+                      AED {balance.toLocaleString()}
+                    </p>
+                  </div>
+                )}
+                <div>
+                  <Label>Due Date</Label>
+                  <Value>{fmtDate(payment.due_date)}</Value>
+                </div>
+                <div>
+                  <Label>Payment Date</Label>
+                  <Value>{fmtDate(payment.payment_date)}</Value>
+                </div>
+                <div>
+                  <Label>Payment Method</Label>
+                  <Value>{METHOD_LABELS[payment.payment_method || ''] || payment.payment_method || '—'}</Value>
+                </div>
+                {(payment.cheque_number || payment.reference_number) && (
+                  <div>
+                    <Label>{payment.cheque_number ? 'Cheque Number' : 'Reference'}</Label>
+                    <Value>{payment.cheque_number || payment.reference_number}</Value>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Notes */}
