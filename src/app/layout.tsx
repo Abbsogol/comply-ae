@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, DM_Sans, Cormorant_Garamond } from "next/font/google";
+import { Inter, DM_Sans, Playfair_Display } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -14,10 +14,9 @@ const playfair = DM_Sans({
   display: "swap",
 });
 
-const cormorant = Cormorant_Garamond({
+const cormorant = Playfair_Display({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: ["400", "600", "700"],
   display: "swap",
 });
 
