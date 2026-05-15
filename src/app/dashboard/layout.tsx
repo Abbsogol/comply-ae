@@ -35,6 +35,13 @@ function SidebarContent() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
       setUserEmail(user.email || '')
+
+      // First-time user: no properties → send to onboarding
+      const { data: props } = await supabase.from('properties').select('id').limit(1)
+      if (!props || props.length === 0) {
+        router.push('/onboarding')
+        return
+      }
     }
     getUser()
   }, [router])
