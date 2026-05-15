@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import DashboardTour from '@/components/DashboardTour'
 
 const GOLD = '#C9963F'
 const DARK = '#080808'
@@ -116,6 +117,7 @@ export default function DashboardPage() {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: DARK, padding: '40px 48px' }}>
+      <DashboardTour />
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '36px' }}>
