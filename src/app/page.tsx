@@ -12,6 +12,8 @@ function HeroCanvas() {
   useEffect(() => {
     const v = videoRef.current
     if (!v) return
+    // If already cached, readyState >= 2 means data is available — show immediately
+    if (v.readyState >= 2) setVideoReady(true)
     v.play().catch(() => {})
   }, [])
   return (
