@@ -90,9 +90,9 @@ export default function DashboardPage() {
 
   // Stats
   const total      = properties.length
-  const occupied   = properties.filter(p => p.status === 'Occupied').length
-  const vacant     = properties.filter(p => p.status === 'Vacant').length
-  const maintenance = properties.filter(p => p.status === 'Under Maintenance').length
+  const occupied   = properties.filter(p => p.status?.toLowerCase() === 'occupied').length
+  const vacant     = properties.filter(p => p.status?.toLowerCase() === 'vacant').length
+  const maintenance = properties.filter(p => p.status?.toLowerCase() === 'under maintenance').length
 
   // Ejari alerts — expired or expiring within 90 days
   const ejariAlerts = properties.filter(p => {
@@ -105,11 +105,11 @@ export default function DashboardPage() {
   })
 
   // Vacant properties
-  const vacantProps = properties.filter(p => p.status === 'Vacant')
+  const vacantProps = properties.filter(p => p.status?.toLowerCase() === 'vacant')
 
   // Monthly rent total (occupied only)
   const monthlyRentTotal = properties
-    .filter(p => p.status === 'Occupied' && p.monthly_rent)
+    .filter(p => p.status?.toLowerCase() === 'occupied' && p.monthly_rent)
     .reduce((sum, p) => sum + (p.monthly_rent || 0), 0)
 
   const propName = (p: Property) =>
