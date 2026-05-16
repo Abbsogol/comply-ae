@@ -73,7 +73,7 @@ export async function GET(request: Request) {
 
       for (const payment of rentPayments || []) {
         const days = daysUntil(payment.due_date)
-        const prop = payment.properties as { unit_number: string | null; building_name: string | null } | null
+        const prop = payment.properties as unknown as { unit_number: string | null; building_name: string | null } | null
         const name = prop ? propName(prop) : 'Unknown Property'
         const amount = payment.expected_amount ? `AED ${Number(payment.expected_amount).toLocaleString()}` : ''
         const period = payment.period_label || ''
@@ -94,7 +94,7 @@ export async function GET(request: Request) {
 
       for (const doc of vaultDocs || []) {
         const days = daysUntil(doc.expiry_date)
-        const prop = doc.properties as { unit_number: string | null; building_name: string | null } | null
+        const prop = doc.properties as unknown as { unit_number: string | null; building_name: string | null } | null
         const propLabel = prop ? ` (${propName(prop)})` : ''
 
         if (days < 0) {
