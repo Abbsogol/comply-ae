@@ -9,6 +9,10 @@ const DARK = '#080808'
 const CARD = '#0D0D0D'
 const BORDER = '#1E1E1E'
 
+const AREAS = ['Dubai Marina', 'Downtown Dubai', 'Business Bay', 'Jumeirah Village Circle', 'Palm Jumeirah', 'Arabian Ranches', 'Dubai Hills Estate', 'Jumeirah Lake Towers', 'Al Barsha', 'Deira', 'Bur Dubai', 'Mirdif', 'Sports City', 'Motor City', 'Other']
+const PROP_TYPES = ['apartment', 'villa', 'townhouse', 'studio', 'penthouse', 'office', 'retail']
+const STATUSES = ['occupied', 'vacant', 'under maintenance']
+
 type Property = {
   id: string
   unit_number: string | null
@@ -41,13 +45,13 @@ function daysUntil(dateStr: string | null): number | null {
 }
 
 function StatusBadge({ status }: { status: string | null }) {
-  const s = status || 'Vacant'
+  const s = (status || 'vacant').toLowerCase()
   const map: Record<string, { color: string; bg: string; border: string }> = {
-    'Occupied':          { color: '#4ade80', bg: '#0D1F0D', border: '#2a4a2a' },
-    'Vacant':            { color: '#888',    bg: '#111',    border: '#222'    },
-    'Under Maintenance': { color: '#E67E22', bg: '#1F150A', border: '#5a3a10' },
+    'occupied':           { color: '#4ade80', bg: '#0D1F0D', border: '#2a4a2a' },
+    'vacant':             { color: '#888',    bg: '#111',    border: '#222'    },
+    'under maintenance':  { color: '#E67E22', bg: '#1F150A', border: '#5a3a10' },
   }
-  const st = map[s] || map['Vacant']
+  const st = map[s] || map['vacant']
   return (
     <span style={{
       fontSize: '11px', fontWeight: '700', letterSpacing: '0.08em',
@@ -70,6 +74,20 @@ function InfoRow({ label, value, highlight }: { label: string; value: string | n
   )
 }
 
+const inputStyle: React.CSSProperties = {
+  width: '100%', padding: '10px 12px',
+  backgroundColor: '#0A0A0A',
+  border: `1px solid ${BORDER}`,
+  borderRadius: '7px', color: '#F5F5F5',
+  fontSize: '13.5px', outline: 'none', boxSizing: 'border-box',
+}
+
+const labelStyle: React.CSSProperties = {
+  color: '#555', fontSize: '11px', fontWeight: '600',
+  letterSpacing: '0.06em', textTransform: 'uppercase',
+  display: 'block', marginBottom: '6px',
+}
+
 export default function PropertyDetailPage() {
   const router = useRouter()
   const params = useParams()
@@ -79,13 +97,32 @@ export default function PropertyDetailPage() {
   const [tenant, setTenant] = useState<Tenant | null>(null)
   const [allTenants, setAllTenants] = useState<Tenant[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Edit mode
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({
+    unit_number: '',
+    building_name: '',
+    area: '',
+    property_type: '',
+    bedrooms: '',
+    monthly_rent: '',
+    status: '',
+    ejari_number: '',
+    ejari_expiry: '',
+    title_deed_number: '',
+    notes: '',
+  })
+
+  // Notes inline (view mode)
   const [editingNotes, setEditingNotes] = useState(false)
   const [notes, setNotes] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
+
+  // Tenant linking
   const [linkingTenant, setLinkingTenant] = useState(false)
   const [selectedTenantId, setSelectedTenantId] = useState('')
-  const [editingStatus, setEditingStatus] = useState(false)
-  const [newStatus, setNewStatus] = useState('')
 
   const fetchProperty = async () => {
     const { data, error } = await supabase
@@ -96,7 +133,19 @@ export default function PropertyDetailPage() {
     if (error || !data) { router.push('/dashboard/properties'); return }
     setProperty(data)
     setNotes(data.notes || '')
-    setNewStatus(data.status || 'Vacant')
+    setForm({
+      unit_number:       data.unit_number || '',
+      building_name:     data.building_name || '',
+      area:              data.area || '',
+      property_type:     data.property_type || '',
+      bedrooms:          data.bedrooms || '',
+      monthly_rent:      data.monthly_rent?.toString() || '',
+      status:            (data.status || 'vacant').toLowerCase(),
+      ejari_number:      data.ejari_number || '',
+      ejari_expiry:      data.ejari_expiry || '',
+      title_deed_number: data.title_deed_number || '',
+      notes:             data.notes || '',
+    })
 
     if (data.tenant_id) {
       const { data: t } = await supabase.from('clients').select('id, full_name, email, phone, nationality').eq('id', data.tenant_id).single()
@@ -115,6 +164,28 @@ export default function PropertyDetailPage() {
     fetchAllTenants()
   }, [id])
 
+  const saveEdit = async () => {
+    if (!form.unit_number.trim()) { alert('Unit number is required.'); return }
+    setSaving(true)
+    const { error } = await supabase.from('properties').update({
+      unit_number:       form.unit_number.trim(),
+      building_name:     form.building_name.trim() || null,
+      area:              form.area || null,
+      property_type:     form.property_type || null,
+      bedrooms:          form.bedrooms || null,
+      monthly_rent:      form.monthly_rent ? parseFloat(form.monthly_rent) : null,
+      status:            form.status,
+      ejari_number:      form.ejari_number.trim() || null,
+      ejari_expiry:      form.ejari_expiry || null,
+      title_deed_number: form.title_deed_number.trim() || null,
+      notes:             form.notes.trim() || null,
+    }).eq('id', id)
+    setSaving(false)
+    if (error) { alert('Failed to save. Please try again.'); return }
+    setEditing(false)
+    fetchProperty()
+  }
+
   const saveNotes = async () => {
     setSavingNotes(true)
     await supabase.from('properties').update({ notes }).eq('id', id)
@@ -123,26 +194,21 @@ export default function PropertyDetailPage() {
     setSavingNotes(false)
   }
 
-  const saveStatus = async () => {
-    await supabase.from('properties').update({ status: newStatus }).eq('id', id)
-    setProperty(p => p ? { ...p, status: newStatus } : p)
-    setEditingStatus(false)
-  }
-
   const linkTenant = async () => {
     if (!selectedTenantId) return
-    await supabase.from('properties').update({ tenant_id: selectedTenantId }).eq('id', id)
+    await supabase.from('properties').update({ tenant_id: selectedTenantId, status: 'occupied' }).eq('id', id)
     const found = allTenants.find(t => t.id === selectedTenantId)
     if (found) setTenant(found)
-    setProperty(p => p ? { ...p, tenant_id: selectedTenantId } : p)
+    setProperty(p => p ? { ...p, tenant_id: selectedTenantId, status: 'occupied' } : p)
     setLinkingTenant(false)
     setSelectedTenantId('')
   }
 
   const unlinkTenant = async () => {
-    await supabase.from('properties').update({ tenant_id: null }).eq('id', id)
+    if (!confirm('Remove this tenant from the property? The property will be set to Vacant.')) return
+    await supabase.from('properties').update({ tenant_id: null, status: 'vacant' }).eq('id', id)
     setTenant(null)
-    setProperty(p => p ? { ...p, tenant_id: null } : p)
+    setProperty(p => p ? { ...p, tenant_id: null, status: 'vacant' } : p)
   }
 
   if (loading) return (
@@ -152,25 +218,168 @@ export default function PropertyDetailPage() {
 
   const ejariDays = daysUntil(property.ejari_expiry)
   const ejariExpired = ejariDays !== null && ejariDays < 0
-  const ejariUrgent = ejariDays !== null && ejariDays >= 0 && ejariDays <= 30
+  const ejariUrgent  = ejariDays !== null && ejariDays >= 0 && ejariDays <= 30
   const ejariWarning = ejariDays !== null && ejariDays > 30 && ejariDays <= 90
-
-  const ejariColor = ejariExpired ? '#C0392B' : ejariUrgent ? '#E67E22' : ejariWarning ? GOLD : '#4ade80'
-
-  const ejariLabel = ejariDays === null ? '—'
+  const ejariColor   = ejariExpired ? '#C0392B' : ejariUrgent ? '#E67E22' : ejariWarning ? GOLD : '#4ade80'
+  const ejariLabel   = ejariDays === null ? '—'
     : ejariExpired ? `EXPIRED ${Math.abs(ejariDays)}d ago`
     : ejariDays === 0 ? 'Expires TODAY'
     : `${ejariDays} days left`
 
   const propertyTitle = [property.unit_number, property.building_name].filter(Boolean).join(', ') || 'Unnamed Property'
 
+  // ── EDIT MODE ──────────────────────────────────────────────────────────────
+  if (editing) {
+    return (
+      <div style={{ padding: '40px 48px', minHeight: '100vh', backgroundColor: DARK }}>
+        <button
+          onClick={() => setEditing(false)}
+          style={{ background: 'transparent', border: 'none', color: '#555', fontSize: '13px', cursor: 'pointer', padding: 0, marginBottom: '24px' }}
+        >
+          ← Cancel editing
+        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
+          <h2 style={{
+            fontFamily: 'var(--font-playfair), Georgia, serif',
+            fontSize: '24px', fontWeight: '700', color: '#F5F5F5', margin: 0,
+          }}>
+            Edit Property
+          </h2>
+          <span style={{ color: '#444', fontSize: '13px' }}>{propertyTitle}</span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '28px' }}>
+
+          {/* Left column */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+            <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '28px' }}>
+              <p style={{ color: '#444', fontSize: '11px', fontWeight: '700', letterSpacing: '0.1em', margin: '0 0 20px 0' }}>PROPERTY DETAILS</p>
+
+              <div style={{ marginBottom: '14px' }}>
+                <label style={labelStyle}>Unit Number *</label>
+                <input value={form.unit_number} onChange={e => setForm(f => ({ ...f, unit_number: e.target.value }))} placeholder="e.g. 204, Villa 12" style={inputStyle} />
+              </div>
+
+              <div style={{ marginBottom: '14px' }}>
+                <label style={labelStyle}>Building Name</label>
+                <input value={form.building_name} onChange={e => setForm(f => ({ ...f, building_name: e.target.value }))} placeholder="e.g. Marina Gate" style={inputStyle} />
+              </div>
+
+              <div style={{ marginBottom: '14px' }}>
+                <label style={labelStyle}>Area</label>
+                <select value={form.area} onChange={e => setForm(f => ({ ...f, area: e.target.value }))} style={inputStyle}>
+                  <option value="">— Select area —</option>
+                  {AREAS.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+                <div>
+                  <label style={labelStyle}>Property Type</label>
+                  <select value={form.property_type} onChange={e => setForm(f => ({ ...f, property_type: e.target.value }))} style={inputStyle}>
+                    <option value="">— Select —</option>
+                    {PROP_TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Bedrooms</label>
+                  <select value={form.bedrooms} onChange={e => setForm(f => ({ ...f, bedrooms: e.target.value }))} style={inputStyle}>
+                    <option value="">—</option>
+                    {['Studio', '1', '2', '3', '4', '5+'].map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={labelStyle}>Monthly Rent (AED)</label>
+                  <input type="number" value={form.monthly_rent} onChange={e => setForm(f => ({ ...f, monthly_rent: e.target.value }))} placeholder="e.g. 85000" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Status</label>
+                  <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} style={inputStyle}>
+                    {STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '28px' }}>
+              <p style={{ color: '#444', fontSize: '11px', fontWeight: '700', letterSpacing: '0.1em', margin: '0 0 16px 0' }}>NOTES</p>
+              <textarea
+                value={form.notes}
+                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                rows={4}
+                placeholder="Any notes about this property..."
+                style={{ ...inputStyle, resize: 'vertical' }}
+              />
+            </div>
+          </div>
+
+          {/* Right column */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+            <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '28px' }}>
+              <p style={{ color: '#444', fontSize: '11px', fontWeight: '700', letterSpacing: '0.1em', margin: '0 0 20px 0' }}>EJARI & COMPLIANCE</p>
+
+              <div style={{ marginBottom: '14px' }}>
+                <label style={labelStyle}>Ejari Number</label>
+                <input value={form.ejari_number} onChange={e => setForm(f => ({ ...f, ejari_number: e.target.value }))} placeholder="e.g. EJ12345678" style={inputStyle} />
+              </div>
+
+              <div style={{ marginBottom: '14px' }}>
+                <label style={labelStyle}>Ejari Expiry Date</label>
+                <input type="date" value={form.ejari_expiry} onChange={e => setForm(f => ({ ...f, ejari_expiry: e.target.value }))} style={inputStyle} />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Title Deed Number</label>
+                <input value={form.title_deed_number} onChange={e => setForm(f => ({ ...f, title_deed_number: e.target.value }))} placeholder="e.g. 12345678" style={inputStyle} />
+              </div>
+            </div>
+
+            {/* Save / Cancel */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button
+                onClick={saveEdit}
+                disabled={saving}
+                style={{
+                  padding: '13px', backgroundColor: GOLD, color: '#fff',
+                  border: 'none', borderRadius: '8px', fontSize: '14px',
+                  fontWeight: '700', cursor: saving ? 'not-allowed' : 'pointer',
+                  opacity: saving ? 0.7 : 1,
+                }}
+              >
+                {saving ? 'Saving…' : 'Save Changes'}
+              </button>
+              <button
+                onClick={() => setEditing(false)}
+                style={{
+                  padding: '12px', backgroundColor: 'transparent', color: '#444',
+                  border: `1px solid ${BORDER}`, borderRadius: '8px',
+                  fontSize: '13px', cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── VIEW MODE ──────────────────────────────────────────────────────────────
   return (
     <div style={{ padding: '40px 48px', minHeight: '100vh', backgroundColor: DARK }}>
 
       {/* Back */}
       <button
         onClick={() => router.push('/dashboard/properties')}
-        style={{ background: 'transparent', border: 'none', color: '#555', fontSize: '13px', cursor: 'pointer', padding: '0', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '6px' }}
+        style={{ background: 'transparent', border: 'none', color: '#555', fontSize: '13px', cursor: 'pointer', padding: 0, marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '6px' }}
       >
         ← Back to Properties
       </button>
@@ -186,35 +395,30 @@ export default function PropertyDetailPage() {
             }}>
               {propertyTitle}
             </h2>
-            {editingStatus ? (
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <select
-                  value={newStatus}
-                  onChange={e => setNewStatus(e.target.value)}
-                  style={{ background: '#111', border: `1px solid ${BORDER}`, borderRadius: '6px', padding: '4px 8px', color: '#F5F5F5', fontSize: '12px' }}
-                >
-                  {['Occupied', 'Vacant', 'Under Maintenance'].map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <button onClick={saveStatus} style={{ background: GOLD, border: 'none', color: '#000', borderRadius: '5px', padding: '4px 10px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>Save</button>
-                <button onClick={() => setEditingStatus(false)} style={{ background: 'transparent', border: 'none', color: '#555', fontSize: '11px', cursor: 'pointer' }}>Cancel</button>
-              </div>
-            ) : (
-              <div style={{ cursor: 'pointer' }} onClick={() => setEditingStatus(true)}>
-                <StatusBadge status={property.status} />
-              </div>
-            )}
+            <StatusBadge status={property.status} />
           </div>
           <p style={{ color: '#555', fontSize: '13.5px', margin: 0 }}>
             {[property.area, property.property_type, property.bedrooms].filter(Boolean).join(' · ')}
           </p>
         </div>
+
+        <button
+          onClick={() => setEditing(true)}
+          style={{
+            background: 'transparent', border: `1px solid ${BORDER}`,
+            color: '#888', borderRadius: '8px', padding: '10px 20px',
+            fontSize: '13px', fontWeight: '600', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: '8px',
+          }}
+        >
+          ✏️ Edit Property
+        </button>
       </div>
 
       {/* Ejari Alert Banner */}
       {property.ejari_expiry && (ejariExpired || ejariUrgent || ejariWarning) && (
         <div style={{
-          background: `${ejariColor}10`,
-          border: `1px solid ${ejariColor}33`,
+          background: `${ejariColor}10`, border: `1px solid ${ejariColor}33`,
           borderRadius: '10px', padding: '16px 20px', marginBottom: '28px',
           display: 'flex', alignItems: 'center', gap: '12px',
         }}>
@@ -238,39 +442,35 @@ export default function PropertyDetailPage() {
         {/* Property Details */}
         <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '28px' }}>
           <h3 style={{ fontSize: '11px', fontWeight: '700', color: '#444', letterSpacing: '0.1em', margin: '0 0 4px 0' }}>PROPERTY DETAILS</h3>
-          <div>
-            <InfoRow label="Monthly Rent" value={property.monthly_rent ? `AED ${property.monthly_rent.toLocaleString()}` : null} highlight={!!property.monthly_rent} />
-            <InfoRow label="Property Type" value={property.property_type} />
-            <InfoRow label="Bedrooms" value={property.bedrooms} />
-            <InfoRow label="Area" value={property.area} />
-            <InfoRow label="Title Deed No." value={property.title_deed_number} />
-            <InfoRow label="Added" value={new Date(property.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} />
-          </div>
+          <InfoRow label="Monthly Rent" value={property.monthly_rent ? `AED ${property.monthly_rent.toLocaleString()}` : null} highlight={!!property.monthly_rent} />
+          <InfoRow label="Property Type" value={property.property_type} />
+          <InfoRow label="Bedrooms" value={property.bedrooms} />
+          <InfoRow label="Area" value={property.area} />
+          <InfoRow label="Title Deed No." value={property.title_deed_number} />
+          <InfoRow label="Added" value={new Date(property.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} />
         </div>
 
         {/* Ejari Details */}
         <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '28px' }}>
           <h3 style={{ fontSize: '11px', fontWeight: '700', color: '#444', letterSpacing: '0.1em', margin: '0 0 4px 0' }}>EJARI & COMPLIANCE</h3>
-          <div>
-            <InfoRow label="Ejari Number" value={property.ejari_number} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 0', borderBottom: `1px solid ${BORDER}` }}>
-              <span style={{ fontSize: '12px', color: '#555', fontWeight: '500' }}>Ejari Expiry</span>
-              <span style={{ fontSize: '13.5px', color: ejariColor, fontWeight: '600' }}>
-                {property.ejari_expiry
-                  ? new Date(property.ejari_expiry).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-                  : '—'}
-              </span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 0', borderBottom: `1px solid ${BORDER}` }}>
-              <span style={{ fontSize: '12px', color: '#555', fontWeight: '500' }}>Status</span>
-              <span style={{ fontSize: '13px', color: ejariColor, fontWeight: '700' }}>{ejariLabel}</span>
-            </div>
-            <InfoRow label="90-Day Notice Due" value={
-              property.ejari_expiry
-                ? new Date(new Date(property.ejari_expiry).getTime() - 90 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-                : null
-            } />
+          <InfoRow label="Ejari Number" value={property.ejari_number} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 0', borderBottom: `1px solid ${BORDER}` }}>
+            <span style={{ fontSize: '12px', color: '#555', fontWeight: '500' }}>Ejari Expiry</span>
+            <span style={{ fontSize: '13.5px', color: ejariColor, fontWeight: '600' }}>
+              {property.ejari_expiry
+                ? new Date(property.ejari_expiry).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                : '—'}
+            </span>
           </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 0', borderBottom: `1px solid ${BORDER}` }}>
+            <span style={{ fontSize: '12px', color: '#555', fontWeight: '500' }}>Status</span>
+            <span style={{ fontSize: '13px', color: ejariColor, fontWeight: '700' }}>{ejariLabel}</span>
+          </div>
+          <InfoRow label="90-Day Notice Due" value={
+            property.ejari_expiry
+              ? new Date(new Date(property.ejari_expiry).getTime() - 90 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+              : null
+          } />
         </div>
       </div>
 
@@ -280,7 +480,7 @@ export default function PropertyDetailPage() {
           <h3 style={{ fontSize: '11px', fontWeight: '700', color: '#444', letterSpacing: '0.1em', margin: 0 }}>LINKED TENANT</h3>
           {tenant && (
             <button onClick={unlinkTenant} style={{ background: 'transparent', border: `1px solid ${BORDER}`, color: '#555', borderRadius: '6px', padding: '5px 12px', fontSize: '11px', cursor: 'pointer' }}>
-              Unlink
+              Remove Tenant
             </button>
           )}
         </div>
