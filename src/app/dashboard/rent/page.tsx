@@ -74,7 +74,7 @@ export default function RentPage() {
 
   const totalCollected = payments
     .filter(p => p.status === 'paid' || p.status === 'partial')
-    .reduce((sum, p) => sum + (p.paid_amount || 0), 0)
+    .reduce((sum, p) => sum + (p.paid_amount ?? p.expected_amount ?? 0), 0)
 
   const totalOutstanding = payments
     .filter(p => p.status === 'outstanding' || p.status === 'late' || p.status === 'partial')

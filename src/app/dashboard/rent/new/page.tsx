@@ -97,6 +97,15 @@ export default function NewRentPage() {
 
   const set = (key: string, value: string) => setForm(f => ({ ...f, [key]: value }))
 
+  const handleStatusChange = (status: string) => {
+    setForm(f => ({
+      ...f,
+      status,
+      // When marking as fully paid, auto-fill paid amount from expected if not already set
+      paid_amount: status === 'paid' && !f.paid_amount ? f.expected_amount : f.paid_amount,
+    }))
+  }
+
   const handlePropertyChange = (propId: string) => {
     const prop = properties.find(p => p.id === propId)
     setForm(f => ({
@@ -212,7 +221,7 @@ export default function NewRentPage() {
               <Label>Status</Label>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {STATUSES.map(s => (
-                  <button key={s.value} onClick={() => set('status', s.value)}
+                  <button key={s.value} onClick={() => handleStatusChange(s.value)}
                     style={{
                       padding: '8px 14px', borderRadius: '7px', fontSize: '12px', fontWeight: '600', cursor: 'pointer',
                       border: `1px solid ${form.status === s.value ? s.color : BORDER}`,
