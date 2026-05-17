@@ -70,13 +70,13 @@ function EjariBadge({ expiry }: { expiry: string | null }) {
 }
 
 function StatusBadge({ status }: { status: string | null }) {
-  const s = status || 'Vacant'
+  const s = (status || 'vacant').toLowerCase()
   const map: Record<string, { color: string; bg: string; border: string }> = {
-    'Occupied':         { color: '#4ade80', bg: '#0D1F0D', border: '#2a4a2a' },
-    'Vacant':           { color: '#888',    bg: '#111',    border: '#222'    },
-    'Under Maintenance':{ color: '#E67E22', bg: '#1F150A', border: '#5a3a10' },
+    'occupied':          { color: '#4ade80', bg: '#0D1F0D', border: '#2a4a2a' },
+    'vacant':            { color: '#888',    bg: '#111',    border: '#222'    },
+    'under maintenance': { color: '#E67E22', bg: '#1F150A', border: '#5a3a10' },
   }
-  const style = map[s] || map['Vacant']
+  const style = map[s] || map['vacant']
   return (
     <span style={{
       fontSize: '10px', fontWeight: '700', letterSpacing: '0.08em',
@@ -149,8 +149,8 @@ export default function PropertiesPage() {
 
   // Stats
   const total = properties.length
-  const occupied = properties.filter(p => p.status === 'Occupied').length
-  const vacant = properties.filter(p => p.status === 'Vacant').length
+  const occupied = properties.filter(p => p.status?.toLowerCase() === 'occupied').length
+  const vacant = properties.filter(p => p.status?.toLowerCase() === 'vacant').length
   const expiringSoon = properties.filter(p => {
     const d = daysUntil(p.ejari_expiry)
     return d !== null && d >= 0 && d <= 90

@@ -176,10 +176,13 @@ export async function GET(request: Request) {
         </html>
       `
 
+      // Resend free tier only allows sending to the verified account email.
+      // Until a custom domain is set up, all alerts go to the Resend account owner.
+      const sendTo = process.env.RESEND_TO_EMAIL || email
       await resend.emails.send({
         from: 'COMPLY.AE <onboarding@resend.dev>',
-        to: email,
-        subject: `⚠️ ${alerts.length} alert${alerts.length > 1 ? 's' : ''} need your attention — COMPLY.AE`,
+        to: sendTo,
+        subject: `⚠️ ${alerts.length} alert${alerts.length > 1 ? 's' : ''} for ${email} — COMPLY.AE`,
         html,
       })
 
