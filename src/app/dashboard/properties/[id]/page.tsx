@@ -179,7 +179,6 @@ export default function PropertyDetailPage() {
       .select('dewa_status, dewa_account_number, dewa_activation_date, internet_provider, internet_status, internet_account_number')
       .eq('property_id', id)
       .eq('type', 'move_in')
-      .eq('status', 'completed')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
