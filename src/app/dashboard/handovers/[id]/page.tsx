@@ -197,13 +197,25 @@ export default function HandoverWorkflowPage() {
   return (
     <div style={{ padding: '40px 48px', minHeight: '100vh', backgroundColor: DARK }}>
 
-      {/* Back */}
-      <button
-        onClick={() => router.push(`/dashboard/properties/${handover.property_id}`)}
-        style={{ background: 'transparent', border: 'none', color: '#555', fontSize: '13px', cursor: 'pointer', padding: 0, marginBottom: '28px' }}
-      >
-        ← Back to Property
-      </button>
+      {/* Top bar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
+        <button
+          onClick={() => router.push(`/dashboard/properties/${handover.property_id}`)}
+          style={{ background: 'transparent', border: 'none', color: '#555', fontSize: '13px', cursor: 'pointer', padding: 0 }}
+        >
+          ← Back to Property
+        </button>
+        <button
+          onClick={async () => {
+            if (!confirm('Cancel this handover? All progress will be lost and it cannot be recovered.')) return
+            await supabase.from('handovers').delete().eq('id', id)
+            router.push(`/dashboard/properties/${handover.property_id}`)
+          }}
+          style={{ background: 'transparent', border: '1px solid #3a1a1a', color: '#f87171', borderRadius: '7px', padding: '7px 14px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+        >
+          Cancel Handover
+        </button>
+      </div>
 
       {/* Header */}
       <div style={{ marginBottom: '32px' }}>
