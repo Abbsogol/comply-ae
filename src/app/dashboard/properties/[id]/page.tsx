@@ -124,6 +124,10 @@ export default function PropertyDetailPage() {
   const [linkingTenant, setLinkingTenant] = useState(false)
   const [selectedTenantId, setSelectedTenantId] = useState('')
 
+  // Handover
+  const [activeHandover, setActiveHandover] = useState<{ id: string; type: string } | null>(null)
+  const [startingHandover, setStartingHandover] = useState(false)
+
   const fetchProperty = async () => {
     const { data, error } = await supabase
       .from('properties')
@@ -159,9 +163,38 @@ export default function PropertyDetailPage() {
     if (data) setAllTenants(data)
   }
 
+  const fetchActiveHandover = async () => {
+    const { data } = await supabase
+      .from('handovers')
+      .select('id, type')
+      .eq('property_id', id)
+      .eq('status', 'in_progress')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (data) setActiveHandover(data)
+  }
+
+  const startHandover = async (type: 'move_in' | 'move_out') => {
+    setStartingHandover(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setStartingHandover(false); return }
+    const { data, error } = await supabase.from('handovers').insert({
+      user_id: user.id,
+      property_id: id,
+      tenant_id: property?.tenant_id || null,
+      type,
+      status: 'in_progress',
+      step_completed: 1,
+    }).select().single()
+    setStartingHandover(false)
+    if (!error && data) router.push(`/dashboard/handovers/${data.id}`)
+  }
+
   useEffect(() => {
     fetchProperty()
     fetchAllTenants()
+    fetchActiveHandover()
   }, [id])
 
   const saveEdit = async () => {
@@ -531,6 +564,65 @@ export default function PropertyDetailPage() {
                 </button>
               </div>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* Handover Section */}
+      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '28px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <div>
+            <h3 style={{ fontSize: '11px', fontWeight: '700', color: '#444', letterSpacing: '0.1em', margin: '0 0 4px 0' }}>HANDOVER</h3>
+            <p style={{ color: '#333', fontSize: '12.5px', margin: 0 }}>Move-in and move-out workflows for this property</p>
+          </div>
+        </div>
+
+        {activeHandover ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: `${GOLD}0D`, border: `1px solid ${GOLD}33`, borderRadius: '8px', padding: '14px 18px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '18px' }}>{activeHandover.type === 'move_in' ? '🟢' : '🔴'}</span>
+              <div>
+                <p style={{ color: GOLD, fontSize: '13px', fontWeight: '700', margin: '0 0 2px 0' }}>
+                  {activeHandover.type === 'move_in' ? 'Move-In in Progress' : 'Move-Out in Progress'}
+                </p>
+                <p style={{ color: '#555', fontSize: '12px', margin: 0 }}>You have an active handover workflow</p>
+              </div>
+            </div>
+            <button
+              onClick={() => router.push(`/dashboard/handovers/${activeHandover.id}`)}
+              style={{ background: GOLD, border: 'none', color: '#000', borderRadius: '7px', padding: '9px 18px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}
+            >
+              Continue →
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              onClick={() => startHandover('move_in')}
+              disabled={startingHandover}
+              style={{
+                flex: 1, padding: '13px', background: '#0D1F0D',
+                border: '1px solid #2a4a2a', color: '#4ade80',
+                borderRadius: '8px', fontSize: '13.5px', fontWeight: '700',
+                cursor: startingHandover ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              }}
+            >
+              🟢 Start Move-In
+            </button>
+            <button
+              onClick={() => startHandover('move_out')}
+              disabled={startingHandover}
+              style={{
+                flex: 1, padding: '13px', background: '#1F0D0D',
+                border: '1px solid #4a2a2a', color: '#f87171',
+                borderRadius: '8px', fontSize: '13.5px', fontWeight: '700',
+                cursor: startingHandover ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              }}
+            >
+              🔴 Start Move-Out
+            </button>
           </div>
         )}
       </div>
