@@ -128,6 +128,16 @@ export default function PropertyDetailPage() {
   const [activeHandover, setActiveHandover] = useState<{ id: string; type: string } | null>(null)
   const [startingHandover, setStartingHandover] = useState(false)
 
+  // Utility status
+  const [utilities, setUtilities] = useState<{
+    dewa_status: string | null
+    dewa_account_number: string | null
+    dewa_activation_date: string | null
+    internet_provider: string | null
+    internet_status: string | null
+    internet_account_number: string | null
+  } | null>(null)
+
   const fetchProperty = async () => {
     const { data, error } = await supabase
       .from('properties')
@@ -163,6 +173,19 @@ export default function PropertyDetailPage() {
     if (data) setAllTenants(data)
   }
 
+  const fetchUtilities = async () => {
+    const { data } = await supabase
+      .from('handovers')
+      .select('dewa_status, dewa_account_number, dewa_activation_date, internet_provider, internet_status, internet_account_number')
+      .eq('property_id', id)
+      .eq('type', 'move_in')
+      .eq('status', 'completed')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (data) setUtilities(data)
+  }
+
   const fetchActiveHandover = async () => {
     const { data } = await supabase
       .from('handovers')
@@ -195,6 +218,7 @@ export default function PropertyDetailPage() {
     fetchProperty()
     fetchAllTenants()
     fetchActiveHandover()
+    fetchUtilities()
   }, [id])
 
   const saveEdit = async () => {
@@ -506,6 +530,63 @@ export default function PropertyDetailPage() {
           } />
         </div>
       </div>
+
+      {/* Utility Status */}
+      {utilities && (
+        <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '28px', marginBottom: '20px' }}>
+          <h3 style={{ fontSize: '11px', fontWeight: '700', color: '#444', letterSpacing: '0.1em', margin: '0 0 20px 0' }}>UTILITIES</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+
+            {/* DEWA */}
+            <div style={{ background: '#111', border: `1px solid ${BORDER}`, borderRadius: '9px', padding: '16px 18px' }}>
+              <p style={{ color: '#444', fontSize: '11px', fontWeight: '700', letterSpacing: '0.08em', margin: '0 0 10px 0' }}>DEWA</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <span style={{
+                  fontSize: '11px', fontWeight: '700', padding: '3px 9px', borderRadius: '4px',
+                  background: utilities.dewa_status === 'activated' ? '#0D1F0D' : utilities.dewa_status === 'not_applicable' ? '#111' : '#1F150A',
+                  color: utilities.dewa_status === 'activated' ? '#4ade80' : utilities.dewa_status === 'not_applicable' ? '#444' : '#E67E22',
+                  border: `1px solid ${utilities.dewa_status === 'activated' ? '#2a4a2a' : utilities.dewa_status === 'not_applicable' ? '#222' : '#5a3a10'}`,
+                  textTransform: 'uppercase',
+                }}>
+                  {utilities.dewa_status === 'not_applicable' ? 'N/A' : utilities.dewa_status || 'Pending'}
+                </span>
+              </div>
+              {utilities.dewa_account_number && (
+                <p style={{ color: '#888', fontSize: '12.5px', margin: '0 0 3px 0' }}>Acc: <span style={{ color: '#F0F0F0' }}>{utilities.dewa_account_number}</span></p>
+              )}
+              {utilities.dewa_activation_date && (
+                <p style={{ color: '#555', fontSize: '12px', margin: 0 }}>
+                  Activated: {new Date(utilities.dewa_activation_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                </p>
+              )}
+            </div>
+
+            {/* Internet */}
+            <div style={{ background: '#111', border: `1px solid ${BORDER}`, borderRadius: '9px', padding: '16px 18px' }}>
+              <p style={{ color: '#444', fontSize: '11px', fontWeight: '700', letterSpacing: '0.08em', margin: '0 0 10px 0' }}>
+                INTERNET {utilities.internet_provider ? `· ${utilities.internet_provider.toUpperCase()}` : ''}
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <span style={{
+                  fontSize: '11px', fontWeight: '700', padding: '3px 9px', borderRadius: '4px',
+                  background: utilities.internet_status === 'activated' ? '#0D1F0D' : utilities.internet_status === 'not_applicable' ? '#111' : '#1F150A',
+                  color: utilities.internet_status === 'activated' ? '#4ade80' : utilities.internet_status === 'not_applicable' ? '#444' : '#E67E22',
+                  border: `1px solid ${utilities.internet_status === 'activated' ? '#2a4a2a' : utilities.internet_status === 'not_applicable' ? '#222' : '#5a3a10'}`,
+                  textTransform: 'uppercase',
+                }}>
+                  {utilities.internet_status === 'not_applicable' ? 'N/A' : utilities.internet_status || 'Pending'}
+                </span>
+              </div>
+              {utilities.internet_account_number && (
+                <p style={{ color: '#888', fontSize: '12.5px', margin: '0 0 3px 0' }}>Acc: <span style={{ color: '#F0F0F0' }}>{utilities.internet_account_number}</span></p>
+              )}
+              {!utilities.internet_provider && (
+                <p style={{ color: '#333', fontSize: '12px', margin: 0 }}>No provider recorded</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tenant Section */}
       <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '28px', marginBottom: '20px' }}>
