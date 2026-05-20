@@ -28,6 +28,12 @@ type Property = {
   status: string | null
   notes: string | null
   created_at: string
+  dewa_status: string | null
+  dewa_account_number: string | null
+  dewa_activation_date: string | null
+  internet_provider: string | null
+  internet_status: string | null
+  internet_account_number: string | null
 }
 
 type Tenant = {
@@ -128,15 +134,17 @@ export default function PropertyDetailPage() {
   const [activeHandover, setActiveHandover] = useState<{ id: string; type: string } | null>(null)
   const [startingHandover, setStartingHandover] = useState(false)
 
-  // Utility status
-  const [utilities, setUtilities] = useState<{
-    dewa_status: string | null
-    dewa_account_number: string | null
-    dewa_activation_date: string | null
-    internet_provider: string | null
-    internet_status: string | null
-    internet_account_number: string | null
-  } | null>(null)
+  // Utility inline edit
+  const [editingUtilities, setEditingUtilities] = useState(false)
+  const [savingUtilities, setSavingUtilities] = useState(false)
+  const [utilForm, setUtilForm] = useState({
+    dewa_status: 'pending',
+    dewa_account_number: '',
+    dewa_activation_date: '',
+    internet_provider: '',
+    internet_status: 'pending',
+    internet_account_number: '',
+  })
 
   const fetchProperty = async () => {
     const { data, error } = await supabase
@@ -161,6 +169,15 @@ export default function PropertyDetailPage() {
       notes:             data.notes || '',
     })
 
+    setUtilForm({
+      dewa_status:            data.dewa_status || 'pending',
+      dewa_account_number:    data.dewa_account_number || '',
+      dewa_activation_date:   data.dewa_activation_date || '',
+      internet_provider:      data.internet_provider || '',
+      internet_status:        data.internet_status || 'pending',
+      internet_account_number: data.internet_account_number || '',
+    })
+
     if (data.tenant_id) {
       const { data: t } = await supabase.from('clients').select('id, full_name, email, phone, nationality').eq('id', data.tenant_id).single()
       if (t) setTenant(t)
@@ -168,21 +185,32 @@ export default function PropertyDetailPage() {
     setLoading(false)
   }
 
+  const saveUtilities = async () => {
+    setSavingUtilities(true)
+    await supabase.from('properties').update({
+      dewa_status:            utilForm.dewa_status,
+      dewa_account_number:    utilForm.dewa_account_number || null,
+      dewa_activation_date:   utilForm.dewa_activation_date || null,
+      internet_provider:      utilForm.internet_provider || null,
+      internet_status:        utilForm.internet_status,
+      internet_account_number: utilForm.internet_account_number || null,
+    }).eq('id', id)
+    setProperty(p => p ? {
+      ...p,
+      dewa_status:            utilForm.dewa_status,
+      dewa_account_number:    utilForm.dewa_account_number || null,
+      dewa_activation_date:   utilForm.dewa_activation_date || null,
+      internet_provider:      utilForm.internet_provider || null,
+      internet_status:        utilForm.internet_status,
+      internet_account_number: utilForm.internet_account_number || null,
+    } : p)
+    setSavingUtilities(false)
+    setEditingUtilities(false)
+  }
+
   const fetchAllTenants = async () => {
     const { data } = await supabase.from('clients').select('id, full_name, email, phone, nationality').order('full_name')
     if (data) setAllTenants(data)
-  }
-
-  const fetchUtilities = async () => {
-    const { data } = await supabase
-      .from('handovers')
-      .select('dewa_status, dewa_account_number, dewa_activation_date, internet_provider, internet_status, internet_account_number')
-      .eq('property_id', id)
-      .eq('type', 'move_in')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (data) setUtilities(data)
   }
 
   const fetchActiveHandover = async () => {
@@ -217,7 +245,6 @@ export default function PropertyDetailPage() {
     fetchProperty()
     fetchAllTenants()
     fetchActiveHandover()
-    fetchUtilities()
   }, [id])
 
   const saveEdit = async () => {
@@ -531,61 +558,118 @@ export default function PropertyDetailPage() {
       </div>
 
       {/* Utility Status */}
-      {utilities && (
-        <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '28px', marginBottom: '20px' }}>
-          <h3 style={{ fontSize: '11px', fontWeight: '700', color: '#444', letterSpacing: '0.1em', margin: '0 0 20px 0' }}>UTILITIES</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '28px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <h3 style={{ fontSize: '11px', fontWeight: '700', color: '#444', letterSpacing: '0.1em', margin: 0 }}>UTILITIES</h3>
+          {!editingUtilities && (
+            <button onClick={() => setEditingUtilities(true)} style={{ background: 'transparent', border: `1px solid ${BORDER}`, color: '#555', borderRadius: '6px', padding: '5px 12px', fontSize: '11px', cursor: 'pointer' }}>
+              Edit
+            </button>
+          )}
+        </div>
 
-            {/* DEWA */}
-            <div style={{ background: '#111', border: `1px solid ${BORDER}`, borderRadius: '9px', padding: '16px 18px' }}>
-              <p style={{ color: '#444', fontSize: '11px', fontWeight: '700', letterSpacing: '0.08em', margin: '0 0 10px 0' }}>DEWA</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <span style={{
-                  fontSize: '11px', fontWeight: '700', padding: '3px 9px', borderRadius: '4px',
-                  background: utilities.dewa_status === 'activated' ? '#0D1F0D' : utilities.dewa_status === 'not_applicable' ? '#111' : '#1F150A',
-                  color: utilities.dewa_status === 'activated' ? '#4ade80' : utilities.dewa_status === 'not_applicable' ? '#444' : '#E67E22',
-                  border: `1px solid ${utilities.dewa_status === 'activated' ? '#2a4a2a' : utilities.dewa_status === 'not_applicable' ? '#222' : '#5a3a10'}`,
-                  textTransform: 'uppercase',
-                }}>
-                  {utilities.dewa_status === 'not_applicable' ? 'N/A' : utilities.dewa_status || 'Pending'}
-                </span>
+        {editingUtilities ? (
+          <div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+              {/* DEWA edit */}
+              <div>
+                <p style={{ color: GOLD, fontSize: '11px', fontWeight: '700', letterSpacing: '0.08em', margin: '0 0 12px 0' }}>DEWA</p>
+                <div style={{ marginBottom: '10px' }}>
+                  <label style={labelStyle}>Status</label>
+                  <select value={utilForm.dewa_status} onChange={e => setUtilForm(f => ({ ...f, dewa_status: e.target.value }))} style={inputStyle}>
+                    <option value="pending">Pending</option>
+                    <option value="activated">Activated</option>
+                    <option value="not_applicable">Not applicable</option>
+                  </select>
+                </div>
+                <div style={{ marginBottom: '10px' }}>
+                  <label style={labelStyle}>Account Number</label>
+                  <input value={utilForm.dewa_account_number} onChange={e => setUtilForm(f => ({ ...f, dewa_account_number: e.target.value }))} placeholder="e.g. 1234567890" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Activation Date</label>
+                  <input type="date" value={utilForm.dewa_activation_date} onChange={e => setUtilForm(f => ({ ...f, dewa_activation_date: e.target.value }))} style={inputStyle} />
+                </div>
               </div>
-              {utilities.dewa_account_number && (
-                <p style={{ color: '#888', fontSize: '12.5px', margin: '0 0 3px 0' }}>Acc: <span style={{ color: '#F0F0F0' }}>{utilities.dewa_account_number}</span></p>
-              )}
-              {utilities.dewa_activation_date && (
-                <p style={{ color: '#555', fontSize: '12px', margin: 0 }}>
-                  Activated: {new Date(utilities.dewa_activation_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                </p>
-              )}
+              {/* Internet edit */}
+              <div>
+                <p style={{ color: GOLD, fontSize: '11px', fontWeight: '700', letterSpacing: '0.08em', margin: '0 0 12px 0' }}>INTERNET</p>
+                <div style={{ marginBottom: '10px' }}>
+                  <label style={labelStyle}>Provider</label>
+                  <select value={utilForm.internet_provider} onChange={e => setUtilForm(f => ({ ...f, internet_provider: e.target.value }))} style={inputStyle}>
+                    <option value="">— Select —</option>
+                    <option value="du">du</option>
+                    <option value="etisalat">Etisalat (e&)</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div style={{ marginBottom: '10px' }}>
+                  <label style={labelStyle}>Status</label>
+                  <select value={utilForm.internet_status} onChange={e => setUtilForm(f => ({ ...f, internet_status: e.target.value }))} style={inputStyle}>
+                    <option value="pending">Pending</option>
+                    <option value="activated">Activated</option>
+                    <option value="not_applicable">Not applicable</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Account Number</label>
+                  <input value={utilForm.internet_account_number} onChange={e => setUtilForm(f => ({ ...f, internet_account_number: e.target.value }))} placeholder="Account number" style={inputStyle} />
+                </div>
+              </div>
             </div>
-
-            {/* Internet */}
-            <div style={{ background: '#111', border: `1px solid ${BORDER}`, borderRadius: '9px', padding: '16px 18px' }}>
-              <p style={{ color: '#444', fontSize: '11px', fontWeight: '700', letterSpacing: '0.08em', margin: '0 0 10px 0' }}>
-                INTERNET {utilities.internet_provider ? `· ${utilities.internet_provider.toUpperCase()}` : ''}
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <span style={{
-                  fontSize: '11px', fontWeight: '700', padding: '3px 9px', borderRadius: '4px',
-                  background: utilities.internet_status === 'activated' ? '#0D1F0D' : utilities.internet_status === 'not_applicable' ? '#111' : '#1F150A',
-                  color: utilities.internet_status === 'activated' ? '#4ade80' : utilities.internet_status === 'not_applicable' ? '#444' : '#E67E22',
-                  border: `1px solid ${utilities.internet_status === 'activated' ? '#2a4a2a' : utilities.internet_status === 'not_applicable' ? '#222' : '#5a3a10'}`,
-                  textTransform: 'uppercase',
-                }}>
-                  {utilities.internet_status === 'not_applicable' ? 'N/A' : utilities.internet_status || 'Pending'}
-                </span>
-              </div>
-              {utilities.internet_account_number && (
-                <p style={{ color: '#888', fontSize: '12.5px', margin: '0 0 3px 0' }}>Acc: <span style={{ color: '#F0F0F0' }}>{utilities.internet_account_number}</span></p>
-              )}
-              {!utilities.internet_provider && (
-                <p style={{ color: '#333', fontSize: '12px', margin: 0 }}>No provider recorded</p>
-              )}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={saveUtilities} disabled={savingUtilities} style={{ background: GOLD, border: 'none', color: '#000', borderRadius: '6px', padding: '9px 20px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>
+                {savingUtilities ? 'Saving...' : 'Save'}
+              </button>
+              <button onClick={() => setEditingUtilities(false)} style={{ background: 'transparent', border: 'none', color: '#555', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
             </div>
           </div>
-        </div>
-      )}
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            {/* DEWA view */}
+            <div style={{ background: '#111', border: `1px solid ${BORDER}`, borderRadius: '9px', padding: '16px 18px' }}>
+              <p style={{ color: '#444', fontSize: '11px', fontWeight: '700', letterSpacing: '0.08em', margin: '0 0 10px 0' }}>DEWA</p>
+              {(() => {
+                const s = property.dewa_status || 'pending'
+                const color = s === 'activated' ? '#4ade80' : s === 'not_applicable' ? '#444' : '#E67E22'
+                const bg = s === 'activated' ? '#0D1F0D' : s === 'not_applicable' ? '#111' : '#1F150A'
+                const border = s === 'activated' ? '#2a4a2a' : s === 'not_applicable' ? '#222' : '#5a3a10'
+                return (
+                  <>
+                    <span style={{ fontSize: '11px', fontWeight: '700', padding: '3px 9px', borderRadius: '4px', background: bg, color, border: `1px solid ${border}`, textTransform: 'uppercase', display: 'inline-block', marginBottom: '8px' }}>
+                      {s === 'not_applicable' ? 'N/A' : s}
+                    </span>
+                    {property.dewa_account_number && <p style={{ color: '#888', fontSize: '12.5px', margin: '0 0 3px 0' }}>Acc: <span style={{ color: '#F0F0F0' }}>{property.dewa_account_number}</span></p>}
+                    {property.dewa_activation_date && <p style={{ color: '#555', fontSize: '12px', margin: 0 }}>Activated: {new Date(property.dewa_activation_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>}
+                    {!property.dewa_account_number && s === 'pending' && <p style={{ color: '#333', fontSize: '12px', margin: 0 }}>No details recorded</p>}
+                  </>
+                )
+              })()}
+            </div>
+            {/* Internet view */}
+            <div style={{ background: '#111', border: `1px solid ${BORDER}`, borderRadius: '9px', padding: '16px 18px' }}>
+              <p style={{ color: '#444', fontSize: '11px', fontWeight: '700', letterSpacing: '0.08em', margin: '0 0 10px 0' }}>
+                INTERNET{property.internet_provider ? ` · ${property.internet_provider.toUpperCase()}` : ''}
+              </p>
+              {(() => {
+                const s = property.internet_status || 'pending'
+                const color = s === 'activated' ? '#4ade80' : s === 'not_applicable' ? '#444' : '#E67E22'
+                const bg = s === 'activated' ? '#0D1F0D' : s === 'not_applicable' ? '#111' : '#1F150A'
+                const border = s === 'activated' ? '#2a4a2a' : s === 'not_applicable' ? '#222' : '#5a3a10'
+                return (
+                  <>
+                    <span style={{ fontSize: '11px', fontWeight: '700', padding: '3px 9px', borderRadius: '4px', background: bg, color, border: `1px solid ${border}`, textTransform: 'uppercase', display: 'inline-block', marginBottom: '8px' }}>
+                      {s === 'not_applicable' ? 'N/A' : s}
+                    </span>
+                    {property.internet_account_number && <p style={{ color: '#888', fontSize: '12.5px', margin: '0 0 3px 0' }}>Acc: <span style={{ color: '#F0F0F0' }}>{property.internet_account_number}</span></p>}
+                    {!property.internet_provider && s === 'pending' && <p style={{ color: '#333', fontSize: '12px', margin: 0 }}>No details recorded</p>}
+                  </>
+                )
+              })()}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Tenant Section */}
       <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '28px', marginBottom: '20px' }}>

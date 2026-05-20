@@ -176,6 +176,19 @@ export default function HandoverWorkflowPage() {
     if (complete) updates.status = 'completed'
 
     await supabase.from('handovers').update(updates).eq('id', id)
+
+    // Also sync utility data to the property directly
+    if (isMovein) {
+      await supabase.from('properties').update({
+        dewa_status:            form.dewa_status,
+        dewa_account_number:    form.dewa_account_number || null,
+        dewa_activation_date:   form.dewa_activation_date || null,
+        internet_provider:      form.internet_provider || null,
+        internet_status:        form.internet_status,
+        internet_account_number: form.internet_account_number || null,
+      }).eq('id', handover!.property_id)
+    }
+
     setSaving(false)
     if (complete) {
       router.push(`/dashboard/properties/${handover!.property_id}`)
