@@ -130,6 +130,26 @@ export default function PropertyDetailPage() {
   const [linkingTenant, setLinkingTenant] = useState(false)
   const [selectedTenantId, setSelectedTenantId] = useState('')
 
+  // Eviction notices
+  type EvictionNotice = {
+    id: string
+    issue_date: string
+    vacate_date: string
+    reason: string | null
+    status: 'draft' | 'sent' | 'acknowledged' | 'vacated'
+    notes: string | null
+    tenant_id: string | null
+  }
+  const [notices, setNotices] = useState<EvictionNotice[]>([])
+  const [showNoticeForm, setShowNoticeForm] = useState(false)
+  const [savingNotice, setSavingNotice] = useState(false)
+  const [noticeForm, setNoticeForm] = useState({
+    issue_date: new Date().toISOString().split('T')[0],
+    vacate_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    reason: 'non_renewal',
+    notes: '',
+  })
+
   // Access items
   type AccessItem = {
     id: string
@@ -234,6 +254,156 @@ export default function PropertyDetailPage() {
     if (data) setAllTenants(data)
   }
 
+  const fetchNotices = async () => {
+    const { data } = await supabase
+      .from('eviction_notices')
+      .select('*')
+      .eq('property_id', id)
+      .order('created_at', { ascending: false })
+    if (data) setNotices(data)
+  }
+
+  const createNotice = async () => {
+    setSavingNotice(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setSavingNotice(false); return }
+    const { data } = await supabase.from('eviction_notices').insert({
+      user_id: user.id,
+      property_id: id,
+      tenant_id: property?.tenant_id || null,
+      issue_date: noticeForm.issue_date,
+      vacate_date: noticeForm.vacate_date,
+      reason: noticeForm.reason,
+      notes: noticeForm.notes || null,
+      status: 'draft',
+    }).select().single()
+    if (data) setNotices(prev => [data, ...prev])
+    setShowNoticeForm(false)
+    setSavingNotice(false)
+  }
+
+  const updateNoticeStatus = async (noticeId: string, status: EvictionNotice['status']) => {
+    await supabase.from('eviction_notices').update({ status }).eq('id', noticeId)
+    setNotices(prev => prev.map(n => n.id === noticeId ? { ...n, status } : n))
+  }
+
+  const deleteNotice = async (noticeId: string) => {
+    if (!confirm('Delete this notice? This cannot be undone.')) return
+    await supabase.from('eviction_notices').delete().eq('id', noticeId)
+    setNotices(prev => prev.filter(n => n.id !== noticeId))
+  }
+
+  const generateNoticePDF = (notice: EvictionNotice) => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { jsPDF } = require('jspdf')
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+    const pageW = 210
+    const margin = 25
+    const contentW = pageW - margin * 2
+    let y = 25
+
+    const reasonLabels: Record<string, string> = {
+      non_renewal: 'non-renewal of tenancy contract',
+      sale: 'sale of the property',
+      personal_use: 'personal use by the landlord or first-degree relatives',
+      renovation: 'major renovation or demolition requiring the property to be vacant',
+    }
+    const reasonText = reasonLabels[notice.reason || 'non_renewal'] || notice.reason || ''
+    const issueDate = new Date(notice.issue_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
+    const vacateDate = new Date(notice.vacate_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
+    const propertyAddress = [property?.unit_number, property?.building_name, property?.area, 'Dubai, UAE'].filter(Boolean).join(', ')
+
+    // Header
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(18)
+    doc.setTextColor(0, 0, 0)
+    doc.text('NOTICE TO VACATE', pageW / 2, y, { align: 'center' })
+    y += 8
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(100, 100, 100)
+    doc.text('Dubai, United Arab Emirates', pageW / 2, y, { align: 'center' })
+    y += 12
+
+    // Divider
+    doc.setDrawColor(200, 150, 60)
+    doc.setLineWidth(0.8)
+    doc.line(margin, y, pageW - margin, y)
+    y += 10
+
+    // Date
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(11)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`Date: ${issueDate}`, margin, y)
+    y += 12
+
+    // To
+    doc.setFont('helvetica', 'bold')
+    doc.text('To:', margin, y)
+    doc.setFont('helvetica', 'normal')
+    y += 6
+    doc.text(tenant?.full_name || 'The Tenant', margin, y)
+    y += 5
+    doc.text(propertyAddress, margin, y)
+    y += 14
+
+    // Subject
+    doc.setFont('helvetica', 'bold')
+    doc.text('Subject: Notice to Vacate Premises', margin, y)
+    y += 12
+
+    // Body
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(11)
+    const body1 = `Dear ${tenant?.full_name || 'Tenant'},`
+    doc.text(body1, margin, y)
+    y += 8
+
+    const para1 = `This letter serves as formal notice that you are required to vacate and surrender possession of the above-mentioned premises by ${vacateDate}, in accordance with the provisions of Dubai Law No. 26 of 2007 (as amended by Law No. 33 of 2008) regulating the relationship between landlords and tenants in the Emirate of Dubai.`
+    const lines1 = doc.splitTextToSize(para1, contentW)
+    doc.text(lines1, margin, y)
+    y += lines1.length * 5.5 + 6
+
+    const para2 = `The reason for this notice is: ${reasonText}.`
+    const lines2 = doc.splitTextToSize(para2, contentW)
+    doc.text(lines2, margin, y)
+    y += lines2.length * 5.5 + 6
+
+    const para3 = `Please be advised that this notice period of twelve (12) months is provided in compliance with Article 25 of Law No. 33 of 2008. You are kindly requested to vacate the property in good condition and return all keys and access cards by the specified date.`
+    const lines3 = doc.splitTextToSize(para3, contentW)
+    doc.text(lines3, margin, y)
+    y += lines3.length * 5.5 + 6
+
+    if (notice.notes) {
+      const para4 = `Additional notes: ${notice.notes}`
+      const lines4 = doc.splitTextToSize(para4, contentW)
+      doc.text(lines4, margin, y)
+      y += lines4.length * 5.5 + 6
+    }
+
+    y += 8
+    doc.text('Yours sincerely,', margin, y)
+    y += 14
+    doc.setFont('helvetica', 'bold')
+    doc.text('_______________________________', margin, y)
+    y += 6
+    doc.text('Landlord / Authorised Representative', margin, y)
+    y += 5
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.setTextColor(120, 120, 120)
+    doc.text(propertyAddress, margin, y)
+
+    // Footer
+    doc.setFontSize(9)
+    doc.setTextColor(180, 180, 180)
+    doc.text('Generated by COMPLY.AE — comply-ae.vercel.app', pageW / 2, 285, { align: 'center' })
+
+    const filename = `Notice_to_Vacate_${(property?.unit_number || 'property').replace(/\s+/g, '_')}_${notice.issue_date}.pdf`
+    doc.save(filename)
+  }
+
   const fetchAccessItems = async () => {
     const { data } = await supabase
       .from('access_items')
@@ -305,6 +475,7 @@ export default function PropertyDetailPage() {
   useEffect(() => {
     fetchProperty()
     fetchAllTenants()
+    fetchNotices()
     fetchAccessItems()
     fetchActiveHandover()
   }, [id])
@@ -903,6 +1074,142 @@ export default function PropertyDetailPage() {
                     <button onClick={() => deleteAccessItem(item.id)} style={{ background: 'transparent', border: 'none', color: '#333', borderRadius: '5px', padding: '5px 8px', fontSize: '13px', cursor: 'pointer' }}>
                       ✕
                     </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Notice to Vacate */}
+      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '28px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <div>
+            <h3 style={{ fontSize: '11px', fontWeight: '700', color: '#444', letterSpacing: '0.1em', margin: '0 0 4px 0' }}>NOTICE TO VACATE</h3>
+            <p style={{ color: '#333', fontSize: '12.5px', margin: 0 }}>
+              {notices.length === 0 ? 'No notices issued' : `${notices.length} notice${notices.length > 1 ? 's' : ''} on record`}
+            </p>
+          </div>
+          {!showNoticeForm && (
+            <button
+              onClick={() => setShowNoticeForm(true)}
+              style={{ background: 'transparent', border: `1px solid ${BORDER}`, color: '#888', borderRadius: '6px', padding: '6px 14px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+            >
+              + Issue Notice
+            </button>
+          )}
+        </div>
+
+        {/* Create form */}
+        {showNoticeForm && (
+          <div style={{ background: '#111', border: `1px solid ${BORDER}`, borderRadius: '10px', padding: '20px', marginBottom: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+              <div>
+                <label style={labelStyle}>Issue Date</label>
+                <input
+                  type="date"
+                  value={noticeForm.issue_date}
+                  onChange={e => {
+                    const d = e.target.value
+                    const vacate = new Date(new Date(d).getTime() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+                    setNoticeForm(f => ({ ...f, issue_date: d, vacate_date: vacate }))
+                  }}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Vacate By (auto: 12 months)</label>
+                <input
+                  type="date"
+                  value={noticeForm.vacate_date}
+                  onChange={e => setNoticeForm(f => ({ ...f, vacate_date: e.target.value }))}
+                  style={inputStyle}
+                />
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={labelStyle}>Reason</label>
+                <select value={noticeForm.reason} onChange={e => setNoticeForm(f => ({ ...f, reason: e.target.value }))} style={inputStyle}>
+                  <option value="non_renewal">Non-renewal of tenancy contract</option>
+                  <option value="sale">Sale of the property</option>
+                  <option value="personal_use">Personal use (landlord or first-degree relatives)</option>
+                  <option value="renovation">Major renovation or demolition</option>
+                </select>
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={labelStyle}>Additional Notes (optional)</label>
+                <input value={noticeForm.notes} onChange={e => setNoticeForm(f => ({ ...f, notes: e.target.value }))} placeholder="Any extra details..." style={inputStyle} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={createNotice} disabled={savingNotice} style={{ background: GOLD, border: 'none', color: '#000', borderRadius: '6px', padding: '9px 20px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>
+                {savingNotice ? 'Saving...' : 'Issue Notice'}
+              </button>
+              <button onClick={() => setShowNoticeForm(false)} style={{ background: 'transparent', border: 'none', color: '#555', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {/* Notices list */}
+        {notices.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {notices.map(notice => {
+              const statusColors: Record<string, { color: string; bg: string; border: string }> = {
+                draft:        { color: '#888',    bg: '#111',    border: '#222' },
+                sent:         { color: '#60a5fa', bg: '#0D1628', border: '#1e3a5f' },
+                acknowledged: { color: GOLD,      bg: '#1A1200', border: '#4a3800' },
+                vacated:      { color: '#4ade80', bg: '#0D1F0D', border: '#2a4a2a' },
+              }
+              const sc = statusColors[notice.status]
+              const reasonLabels: Record<string, string> = {
+                non_renewal:  'Non-renewal',
+                sale:         'Sale of property',
+                personal_use: 'Personal use',
+                renovation:   'Renovation',
+              }
+              const nextStatuses: Record<string, EvictionNotice['status'][]> = {
+                draft:        ['sent'],
+                sent:         ['acknowledged'],
+                acknowledged: ['vacated'],
+                vacated:      [],
+              }
+              return (
+                <div key={notice.id} style={{ background: '#111', border: `1px solid ${BORDER}`, borderRadius: '10px', padding: '18px 20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '16px' }}>📋</span>
+                        <span style={{ fontSize: '13.5px', fontWeight: '700', color: '#F0F0F0' }}>Notice to Vacate</span>
+                        <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '4px', background: sc.bg, color: sc.color, border: `1px solid ${sc.border}`, textTransform: 'uppercase' }}>
+                          {notice.status}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '12.5px', color: '#555' }}>
+                        Issued: {new Date(notice.issue_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        {' · '}
+                        Vacate by: <span style={{ color: '#F0F0F0', fontWeight: '600' }}>{new Date(notice.vacate_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                        {' · '}
+                        {reasonLabels[notice.reason || ''] || notice.reason}
+                      </div>
+                    </div>
+                    <button onClick={() => deleteNotice(notice.id)} style={{ background: 'transparent', border: 'none', color: '#333', fontSize: '14px', cursor: 'pointer', padding: '0 4px' }}>✕</button>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => generateNoticePDF(notice)}
+                      style={{ background: 'transparent', border: `1px solid ${GOLD}44`, color: GOLD, borderRadius: '6px', padding: '6px 14px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+                    >
+                      ↓ Download PDF
+                    </button>
+                    {nextStatuses[notice.status].map(next => (
+                      <button
+                        key={next}
+                        onClick={() => updateNoticeStatus(notice.id, next)}
+                        style={{ background: 'transparent', border: `1px solid ${BORDER}`, color: '#888', borderRadius: '6px', padding: '6px 14px', fontSize: '12px', cursor: 'pointer' }}
+                      >
+                        Mark as {next.charAt(0).toUpperCase() + next.slice(1)}
+                      </button>
+                    ))}
                   </div>
                 </div>
               )
