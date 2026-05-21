@@ -130,6 +130,43 @@ export default function PropertyDetailPage() {
   const [linkingTenant, setLinkingTenant] = useState(false)
   const [selectedTenantId, setSelectedTenantId] = useState('')
 
+  // Rent increases
+  type RentIncrease = {
+    id: string
+    current_rent: number
+    market_rate: number
+    allowed_increase_pct: number
+    new_rent: number
+    notice_date: string
+    effective_date: string
+    status: 'draft' | 'sent' | 'acknowledged' | 'active'
+    notes: string | null
+    tenant_id: string | null
+  }
+  const [rentIncreases, setRentIncreases] = useState<RentIncrease[]>([])
+  const [showRentForm, setShowRentForm] = useState(false)
+  const [savingRent, setSavingRent] = useState(false)
+  const [rentForm, setRentForm] = useState({
+    current_rent: '',
+    market_rate: '',
+    notice_date: new Date().toISOString().split('T')[0],
+    effective_date: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    notes: '',
+  })
+
+  const calcRera = (current: number, market: number) => {
+    if (!current || !market || market <= 0) return { pct: 0, newRent: current, belowPct: 0 }
+    const belowPct = ((market - current) / market) * 100
+    let pct = 0
+    if (belowPct <= 10) pct = 0
+    else if (belowPct <= 20) pct = 5
+    else if (belowPct <= 30) pct = 10
+    else if (belowPct <= 40) pct = 15
+    else pct = 20
+    const newRent = Math.round(current * (1 + pct / 100))
+    return { pct, newRent, belowPct: Math.round(belowPct * 10) / 10 }
+  }
+
   // Eviction notices
   type EvictionNotice = {
     id: string
@@ -252,6 +289,156 @@ export default function PropertyDetailPage() {
   const fetchAllTenants = async () => {
     const { data } = await supabase.from('clients').select('id, full_name, email, phone, nationality').order('full_name')
     if (data) setAllTenants(data)
+  }
+
+  const fetchRentIncreases = async () => {
+    const { data } = await supabase
+      .from('rent_increases')
+      .select('*')
+      .eq('property_id', id)
+      .order('created_at', { ascending: false })
+    if (data) setRentIncreases(data)
+  }
+
+  const createRentIncrease = async () => {
+    const current = parseFloat(rentForm.current_rent)
+    const market = parseFloat(rentForm.market_rate)
+    if (!current || !market) { alert('Please enter both current rent and market rate.'); return }
+    const { pct, newRent } = calcRera(current, market)
+    if (pct === 0) { alert('Based on RERA rules, no rent increase is allowed — the current rent is within 10% of the market rate.'); return }
+    setSavingRent(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setSavingRent(false); return }
+    const { data } = await supabase.from('rent_increases').insert({
+      user_id: user.id,
+      property_id: id,
+      tenant_id: property?.tenant_id || null,
+      current_rent: current,
+      market_rate: market,
+      allowed_increase_pct: pct,
+      new_rent: newRent,
+      notice_date: rentForm.notice_date,
+      effective_date: rentForm.effective_date,
+      notes: rentForm.notes || null,
+      status: 'draft',
+    }).select().single()
+    if (data) setRentIncreases(prev => [data, ...prev])
+    setShowRentForm(false)
+    setSavingRent(false)
+  }
+
+  const updateRentIncreaseStatus = async (rid: string, status: RentIncrease['status']) => {
+    await supabase.from('rent_increases').update({ status }).eq('id', rid)
+    setRentIncreases(prev => prev.map(r => r.id === rid ? { ...r, status } : r))
+  }
+
+  const deleteRentIncrease = async (rid: string) => {
+    if (!confirm('Delete this rent increase record?')) return
+    await supabase.from('rent_increases').delete().eq('id', rid)
+    setRentIncreases(prev => prev.filter(r => r.id !== rid))
+  }
+
+  const generateRentIncreasePDF = (r: RentIncrease) => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { jsPDF } = require('jspdf')
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+    const pageW = 210
+    const margin = 25
+    const contentW = pageW - margin * 2
+    let y = 25
+
+    const noticeDate = new Date(r.notice_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
+    const effectiveDate = new Date(r.effective_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
+    const propertyAddress = [property?.unit_number, property?.building_name, property?.area, 'Dubai, UAE'].filter(Boolean).join(', ')
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(18)
+    doc.text('NOTICE OF RENT INCREASE', pageW / 2, y, { align: 'center' })
+    y += 8
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(100, 100, 100)
+    doc.text('Dubai, United Arab Emirates', pageW / 2, y, { align: 'center' })
+    y += 12
+
+    doc.setDrawColor(200, 150, 60)
+    doc.setLineWidth(0.8)
+    doc.line(margin, y, pageW - margin, y)
+    y += 10
+
+    doc.setTextColor(0, 0, 0)
+    doc.setFontSize(11)
+    doc.text(`Date: ${noticeDate}`, margin, y)
+    y += 12
+
+    doc.setFont('helvetica', 'bold')
+    doc.text('To:', margin, y)
+    doc.setFont('helvetica', 'normal')
+    y += 6
+    doc.text(tenant?.full_name || 'The Tenant', margin, y)
+    y += 5
+    doc.text(propertyAddress, margin, y)
+    y += 14
+
+    doc.setFont('helvetica', 'bold')
+    doc.text('Subject: Notice of Rent Increase', margin, y)
+    y += 12
+
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Dear ${tenant?.full_name || 'Tenant'},`, margin, y)
+    y += 8
+
+    const p1 = `This letter serves as formal notice that, in accordance with Dubai Law No. 26 of 2007 (as amended by Law No. 33 of 2008) and RERA Decree No. 43 of 2013 (Rent Increase Calculator), your rent will be increased effective ${effectiveDate}.`
+    const l1 = doc.splitTextToSize(p1, contentW)
+    doc.text(l1, margin, y)
+    y += l1.length * 5.5 + 8
+
+    doc.setFont('helvetica', 'bold')
+    doc.text('Rent Details:', margin, y)
+    y += 7
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Current Annual Rent:   AED ${r.current_rent.toLocaleString()}`, margin + 5, y); y += 6
+    doc.text(`Market Rate (RERA):    AED ${r.market_rate.toLocaleString()}`, margin + 5, y); y += 6
+    doc.text(`Permitted Increase:    ${r.allowed_increase_pct}%`, margin + 5, y); y += 6
+    doc.setFont('helvetica', 'bold')
+    doc.text(`New Annual Rent:       AED ${r.new_rent.toLocaleString()}`, margin + 5, y)
+    y += 10
+    doc.setFont('helvetica', 'normal')
+
+    const p2 = `This increase has been calculated in compliance with the RERA Rental Increase Calculator and does not exceed the maximum permitted increase. The new rent of AED ${r.new_rent.toLocaleString()} per annum will be effective from ${effectiveDate}.`
+    const l2 = doc.splitTextToSize(p2, contentW)
+    doc.text(l2, margin, y)
+    y += l2.length * 5.5 + 8
+
+    const p3 = `Please note that this notice is provided 90 days in advance as required by law. Should you have any queries regarding this notice, please contact us at your earliest convenience.`
+    const l3 = doc.splitTextToSize(p3, contentW)
+    doc.text(l3, margin, y)
+    y += l3.length * 5.5 + 8
+
+    if (r.notes) {
+      const ln = doc.splitTextToSize(`Notes: ${r.notes}`, contentW)
+      doc.text(ln, margin, y)
+      y += ln.length * 5.5 + 8
+    }
+
+    y += 8
+    doc.text('Yours sincerely,', margin, y)
+    y += 14
+    doc.setFont('helvetica', 'bold')
+    doc.text('_______________________________', margin, y)
+    y += 6
+    doc.text('Landlord / Authorised Representative', margin, y)
+    y += 5
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.setTextColor(120, 120, 120)
+    doc.text(propertyAddress, margin, y)
+
+    doc.setFontSize(9)
+    doc.setTextColor(180, 180, 180)
+    doc.text('Generated by COMPLY.AE — comply-ae.vercel.app', pageW / 2, 285, { align: 'center' })
+
+    doc.save(`Rent_Increase_Notice_${(property?.unit_number || 'property').replace(/\s+/g, '_')}_${r.notice_date}.pdf`)
   }
 
   const fetchNotices = async () => {
@@ -477,6 +664,7 @@ export default function PropertyDetailPage() {
     fetchAllTenants()
     fetchNotices()
     fetchAccessItems()
+    fetchRentIncreases()
     fetchActiveHandover()
   }, [id])
 
@@ -1205,6 +1393,160 @@ export default function PropertyDetailPage() {
                       <button
                         key={next}
                         onClick={() => updateNoticeStatus(notice.id, next)}
+                        style={{ background: 'transparent', border: `1px solid ${BORDER}`, color: '#888', borderRadius: '6px', padding: '6px 14px', fontSize: '12px', cursor: 'pointer' }}
+                      >
+                        Mark as {next.charAt(0).toUpperCase() + next.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Rent Increase Manager */}
+      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '28px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <div>
+            <h3 style={{ fontSize: '11px', fontWeight: '700', color: '#444', letterSpacing: '0.1em', margin: '0 0 4px 0' }}>RENT INCREASE MANAGER</h3>
+            <p style={{ color: '#333', fontSize: '12.5px', margin: 0 }}>
+              {rentIncreases.length === 0 ? 'No rent increase notices issued' : `${rentIncreases.length} notice${rentIncreases.length > 1 ? 's' : ''} on record`}
+              {' · '}
+              <span style={{ color: '#444', fontSize: '11.5px' }}>RERA Decree No. 43 of 2013</span>
+            </p>
+          </div>
+          {!showRentForm && (
+            <button
+              onClick={() => setShowRentForm(true)}
+              style={{ background: 'transparent', border: `1px solid ${BORDER}`, color: '#888', borderRadius: '6px', padding: '6px 14px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+            >
+              + Calculate Increase
+            </button>
+          )}
+        </div>
+
+        {/* Create form */}
+        {showRentForm && (
+          <div style={{ background: '#111', border: `1px solid ${BORDER}`, borderRadius: '10px', padding: '20px', marginBottom: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+              <div>
+                <label style={labelStyle}>Current Annual Rent (AED)</label>
+                <input
+                  type="number"
+                  value={rentForm.current_rent}
+                  onChange={e => setRentForm(f => ({ ...f, current_rent: e.target.value }))}
+                  placeholder="e.g. 85000"
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Market Rate / RERA Index (AED)</label>
+                <input
+                  type="number"
+                  value={rentForm.market_rate}
+                  onChange={e => setRentForm(f => ({ ...f, market_rate: e.target.value }))}
+                  placeholder="e.g. 100000"
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Notice Date</label>
+                <input type="date" value={rentForm.notice_date} onChange={e => setRentForm(f => ({ ...f, notice_date: e.target.value }))} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Effective Date (min 90 days from notice)</label>
+                <input type="date" value={rentForm.effective_date} onChange={e => setRentForm(f => ({ ...f, effective_date: e.target.value }))} style={inputStyle} />
+              </div>
+            </div>
+
+            {/* RERA live preview */}
+            {rentForm.current_rent && rentForm.market_rate && (() => {
+              const { pct, newRent, belowPct } = calcRera(parseFloat(rentForm.current_rent), parseFloat(rentForm.market_rate))
+              return (
+                <div style={{ background: pct === 0 ? '#0D1F0D' : `${GOLD}0D`, border: `1px solid ${pct === 0 ? '#2a4a2a' : GOLD + '33'}`, borderRadius: '8px', padding: '14px 16px', marginBottom: '14px' }}>
+                  <p style={{ color: '#555', fontSize: '11px', fontWeight: '700', letterSpacing: '0.08em', margin: '0 0 8px 0' }}>RERA CALCULATION RESULT</p>
+                  <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+                    <div>
+                      <p style={{ color: '#444', fontSize: '11px', margin: '0 0 2px 0' }}>Below Market</p>
+                      <p style={{ color: '#F0F0F0', fontSize: '14px', fontWeight: '700', margin: 0 }}>{belowPct}%</p>
+                    </div>
+                    <div>
+                      <p style={{ color: '#444', fontSize: '11px', margin: '0 0 2px 0' }}>Allowed Increase</p>
+                      <p style={{ color: pct === 0 ? '#4ade80' : GOLD, fontSize: '14px', fontWeight: '700', margin: 0 }}>{pct === 0 ? 'No increase allowed' : `${pct}%`}</p>
+                    </div>
+                    {pct > 0 && (
+                      <div>
+                        <p style={{ color: '#444', fontSize: '11px', margin: '0 0 2px 0' }}>New Annual Rent</p>
+                        <p style={{ color: GOLD, fontSize: '14px', fontWeight: '700', margin: 0 }}>AED {newRent.toLocaleString()}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
+
+            <div style={{ marginBottom: '14px' }}>
+              <label style={labelStyle}>Notes (optional)</label>
+              <input value={rentForm.notes} onChange={e => setRentForm(f => ({ ...f, notes: e.target.value }))} placeholder="Any additional notes..." style={inputStyle} />
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={createRentIncrease} disabled={savingRent} style={{ background: GOLD, border: 'none', color: '#000', borderRadius: '6px', padding: '9px 20px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>
+                {savingRent ? 'Saving...' : 'Issue Notice'}
+              </button>
+              <button onClick={() => setShowRentForm(false)} style={{ background: 'transparent', border: 'none', color: '#555', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {/* Rent increases list */}
+        {rentIncreases.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {rentIncreases.map(r => {
+              const statusColors: Record<string, { color: string; bg: string; border: string }> = {
+                draft:        { color: '#888',    bg: '#111',    border: '#222' },
+                sent:         { color: '#60a5fa', bg: '#0D1628', border: '#1e3a5f' },
+                acknowledged: { color: GOLD,      bg: '#1A1200', border: '#4a3800' },
+                active:       { color: '#4ade80', bg: '#0D1F0D', border: '#2a4a2a' },
+              }
+              const sc = statusColors[r.status]
+              const nextStatuses: Record<string, RentIncrease['status'][]> = {
+                draft:        ['sent'],
+                sent:         ['acknowledged'],
+                acknowledged: ['active'],
+                active:       [],
+              }
+              return (
+                <div key={r.id} style={{ background: '#111', border: `1px solid ${BORDER}`, borderRadius: '10px', padding: '18px 20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '16px' }}>📈</span>
+                        <span style={{ fontSize: '13.5px', fontWeight: '700', color: '#F0F0F0' }}>Rent Increase Notice</span>
+                        <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '4px', background: sc.bg, color: sc.color, border: `1px solid ${sc.border}`, textTransform: 'uppercase' }}>
+                          {r.status}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '12.5px', color: '#555' }}>
+                        {`AED ${r.current_rent.toLocaleString()} → `}
+                        <span style={{ color: GOLD, fontWeight: '700' }}>{`AED ${r.new_rent.toLocaleString()}`}</span>
+                        {` (+${r.allowed_increase_pct}%) · Notice: ${new Date(r.notice_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} · Effective: ${new Date(r.effective_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`}
+                      </div>
+                    </div>
+                    <button onClick={() => deleteRentIncrease(r.id)} style={{ background: 'transparent', border: 'none', color: '#333', fontSize: '14px', cursor: 'pointer', padding: '0 4px' }}>✕</button>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => generateRentIncreasePDF(r)}
+                      style={{ background: 'transparent', border: `1px solid ${GOLD}44`, color: GOLD, borderRadius: '6px', padding: '6px 14px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+                    >
+                      ↓ Download PDF
+                    </button>
+                    {nextStatuses[r.status].map(next => (
+                      <button
+                        key={next}
+                        onClick={() => updateRentIncreaseStatus(r.id, next)}
                         style={{ background: 'transparent', border: `1px solid ${BORDER}`, color: '#888', borderRadius: '6px', padding: '6px 14px', fontSize: '12px', cursor: 'pointer' }}
                       >
                         Mark as {next.charAt(0).toUpperCase() + next.slice(1)}
