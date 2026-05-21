@@ -212,6 +212,28 @@ export default function PropertyDetailPage() {
   const [activeHandover, setActiveHandover] = useState<{ id: string; type: string } | null>(null)
   const [startingHandover, setStartingHandover] = useState(false)
 
+  // Property Showings
+  type Showing = {
+    id: string
+    agent_name: string
+    agency: string | null
+    contact_number: string | null
+    showing_date: string
+    outcome: 'interested' | 'not_interested' | 'offer_made' | 'rented' | 'pending'
+    feedback: string | null
+  }
+  const [showings, setShowings] = useState<Showing[]>([])
+  const [showShowingForm, setShowShowingForm] = useState(false)
+  const [savingShowing, setSavingShowing] = useState(false)
+  const [showingForm, setShowingForm] = useState({
+    agent_name: '',
+    agency: '',
+    contact_number: '',
+    showing_date: new Date().toISOString().slice(0, 16),
+    outcome: 'pending',
+    feedback: '',
+  })
+
   // Utility inline edit
   const [editingUtilities, setEditingUtilities] = useState(false)
   const [savingUtilities, setSavingUtilities] = useState(false)
@@ -659,6 +681,55 @@ export default function PropertyDetailPage() {
     if (!error && data) router.push(`/dashboard/handovers/${data.id}`)
   }
 
+  const fetchShowings = async () => {
+    const { data } = await supabase
+      .from('property_showings')
+      .select('*')
+      .eq('property_id', id)
+      .order('showing_date', { ascending: false })
+    if (data) setShowings(data as Showing[])
+  }
+
+  const createShowing = async () => {
+    if (!showingForm.agent_name.trim()) { alert('Agent name is required.'); return }
+    if (!showingForm.showing_date) { alert('Date and time are required.'); return }
+    setSavingShowing(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setSavingShowing(false); return }
+    const { error } = await supabase.from('property_showings').insert({
+      user_id: user.id,
+      property_id: id,
+      agent_name: showingForm.agent_name.trim(),
+      agency: showingForm.agency.trim() || null,
+      contact_number: showingForm.contact_number.trim() || null,
+      showing_date: showingForm.showing_date,
+      outcome: showingForm.outcome,
+      feedback: showingForm.feedback.trim() || null,
+    })
+    setSavingShowing(false)
+    if (!error) {
+      setShowShowingForm(false)
+      setShowingForm({ agent_name: '', agency: '', contact_number: '', showing_date: new Date().toISOString().slice(0, 16), outcome: 'pending', feedback: '' })
+      fetchShowings()
+    }
+  }
+
+  const updateShowingOutcome = async (showingId: string, outcome: Showing['outcome']) => {
+    await supabase.from('property_showings').update({ outcome }).eq('id', showingId)
+    // If rented, also update property status
+    if (outcome === 'rented') {
+      await supabase.from('properties').update({ status: 'occupied' }).eq('id', id)
+      setProperty(p => p ? { ...p, status: 'occupied' } : p)
+    }
+    fetchShowings()
+  }
+
+  const deleteShowing = async (showingId: string) => {
+    if (!confirm('Delete this showing record?')) return
+    await supabase.from('property_showings').delete().eq('id', showingId)
+    fetchShowings()
+  }
+
   useEffect(() => {
     fetchProperty()
     fetchAllTenants()
@@ -666,6 +737,7 @@ export default function PropertyDetailPage() {
     fetchAccessItems()
     fetchRentIncreases()
     fetchActiveHandover()
+    fetchShowings()
   }, [id])
 
   const saveEdit = async () => {
@@ -1552,6 +1624,157 @@ export default function PropertyDetailPage() {
                         Mark as {next.charAt(0).toUpperCase() + next.slice(1)}
                       </button>
                     ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Property Showings Scheduler */}
+      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '28px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <div>
+            <h3 style={{ fontSize: '11px', fontWeight: '700', color: '#444', letterSpacing: '0.1em', margin: '0 0 4px 0' }}>PROPERTY SHOWINGS</h3>
+            <p style={{ color: '#333', fontSize: '12.5px', margin: 0 }}>{showings.length} showing{showings.length !== 1 ? 's' : ''} logged</p>
+          </div>
+          <button
+            onClick={() => setShowShowingForm(v => !v)}
+            style={{ background: GOLD, color: '#000', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}
+          >
+            {showShowingForm ? 'Cancel' : '+ Log Showing'}
+          </button>
+        </div>
+
+        {showShowingForm && (
+          <div style={{ background: '#0A0A0A', border: `1px solid ${BORDER}`, borderRadius: '10px', padding: '20px', marginBottom: '20px' }}>
+            <p style={{ color: '#555', fontSize: '11px', fontWeight: '700', letterSpacing: '0.08em', margin: '0 0 16px 0' }}>NEW SHOWING</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div>
+                <label style={{ display: 'block', color: '#555', fontSize: '11px', marginBottom: '5px' }}>Agent Name *</label>
+                <input
+                  value={showingForm.agent_name}
+                  onChange={e => setShowingForm(f => ({ ...f, agent_name: e.target.value }))}
+                  placeholder="e.g. Sara Al Mansoori"
+                  style={{ width: '100%', background: '#111', border: `1px solid ${BORDER}`, borderRadius: '6px', padding: '9px 12px', color: '#E0E0E0', fontSize: '13px', boxSizing: 'border-box' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', color: '#555', fontSize: '11px', marginBottom: '5px' }}>Agency</label>
+                <input
+                  value={showingForm.agency}
+                  onChange={e => setShowingForm(f => ({ ...f, agency: e.target.value }))}
+                  placeholder="e.g. Better Homes"
+                  style={{ width: '100%', background: '#111', border: `1px solid ${BORDER}`, borderRadius: '6px', padding: '9px 12px', color: '#E0E0E0', fontSize: '13px', boxSizing: 'border-box' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', color: '#555', fontSize: '11px', marginBottom: '5px' }}>Contact Number</label>
+                <input
+                  value={showingForm.contact_number}
+                  onChange={e => setShowingForm(f => ({ ...f, contact_number: e.target.value }))}
+                  placeholder="+971 50 000 0000"
+                  style={{ width: '100%', background: '#111', border: `1px solid ${BORDER}`, borderRadius: '6px', padding: '9px 12px', color: '#E0E0E0', fontSize: '13px', boxSizing: 'border-box' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', color: '#555', fontSize: '11px', marginBottom: '5px' }}>Date & Time *</label>
+                <input
+                  type="datetime-local"
+                  value={showingForm.showing_date}
+                  onChange={e => setShowingForm(f => ({ ...f, showing_date: e.target.value }))}
+                  style={{ width: '100%', background: '#111', border: `1px solid ${BORDER}`, borderRadius: '6px', padding: '9px 12px', color: '#E0E0E0', fontSize: '13px', boxSizing: 'border-box' }}
+                />
+              </div>
+            </div>
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ display: 'block', color: '#555', fontSize: '11px', marginBottom: '5px' }}>Outcome</label>
+              <select
+                value={showingForm.outcome}
+                onChange={e => setShowingForm(f => ({ ...f, outcome: e.target.value }))}
+                style={{ width: '100%', background: '#111', border: `1px solid ${BORDER}`, borderRadius: '6px', padding: '9px 12px', color: '#E0E0E0', fontSize: '13px' }}
+              >
+                <option value="pending">Pending / Not yet decided</option>
+                <option value="interested">Interested</option>
+                <option value="not_interested">Not Interested</option>
+                <option value="offer_made">Offer Made</option>
+                <option value="rented">Rented ✓</option>
+              </select>
+            </div>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', color: '#555', fontSize: '11px', marginBottom: '5px' }}>Feedback / Notes</label>
+              <textarea
+                value={showingForm.feedback}
+                onChange={e => setShowingForm(f => ({ ...f, feedback: e.target.value }))}
+                rows={2}
+                placeholder="Any comments from the viewing..."
+                style={{ width: '100%', background: '#111', border: `1px solid ${BORDER}`, borderRadius: '6px', padding: '9px 12px', color: '#E0E0E0', fontSize: '13px', resize: 'vertical', boxSizing: 'border-box' }}
+              />
+            </div>
+            <button
+              onClick={createShowing}
+              disabled={savingShowing}
+              style={{ background: GOLD, color: '#000', border: 'none', borderRadius: '8px', padding: '10px 22px', fontSize: '13px', fontWeight: '700', cursor: savingShowing ? 'not-allowed' : 'pointer', opacity: savingShowing ? 0.6 : 1 }}
+            >
+              {savingShowing ? 'Saving...' : 'Save Showing'}
+            </button>
+          </div>
+        )}
+
+        {showings.length === 0 && !showShowingForm && (
+          <p style={{ color: '#333', fontSize: '13px', textAlign: 'center', padding: '24px 0' }}>No showings logged yet. Click "+ Log Showing" to record a viewing.</p>
+        )}
+
+        {showings.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {showings.map(s => {
+              const outcomeConfig: Record<string, { label: string; color: string; bg: string }> = {
+                pending:       { label: 'Pending',      color: '#888',    bg: '#1A1A1A' },
+                interested:    { label: 'Interested',   color: '#60a5fa', bg: '#0D1525' },
+                not_interested:{ label: 'Not Interested',color: '#f87171', bg: '#1F0D0D' },
+                offer_made:    { label: 'Offer Made',   color: '#C9963F', bg: '#1A1100' },
+                rented:        { label: 'Rented ✓',     color: '#4ade80', bg: '#0D1F0D' },
+              }
+              const oc = outcomeConfig[s.outcome] || outcomeConfig.pending
+              const showingDt = new Date(s.showing_date)
+              return (
+                <div key={s.id} style={{ background: '#0A0A0A', border: `1px solid ${BORDER}`, borderRadius: '10px', padding: '16px 18px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: 1 }}>
+                      <span style={{ fontSize: '20px', marginTop: '1px' }}>🏠</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '13.5px', fontWeight: '700', color: '#F0F0F0' }}>{s.agent_name}</span>
+                          {s.agency && <span style={{ color: '#555', fontSize: '12px' }}>· {s.agency}</span>}
+                          <span style={{ background: oc.bg, color: oc.color, border: `1px solid ${oc.color}33`, borderRadius: '4px', padding: '2px 8px', fontSize: '11px', fontWeight: '600' }}>
+                            {oc.label}
+                          </span>
+                        </div>
+                        <div style={{ color: '#444', fontSize: '12px', marginBottom: s.feedback ? '6px' : '0' }}>
+                          {showingDt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          {' '}at{' '}
+                          {showingDt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                          {s.contact_number && <span style={{ marginLeft: '10px' }}>📞 {s.contact_number}</span>}
+                        </div>
+                        {s.feedback && <p style={{ color: '#555', fontSize: '12.5px', margin: '0', fontStyle: 'italic' }}>&ldquo;{s.feedback}&rdquo;</p>}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                      {s.outcome === 'pending' && (
+                        <button onClick={() => updateShowingOutcome(s.id, 'interested')} style={{ background: '#0D1525', color: '#60a5fa', border: '1px solid #60a5fa33', borderRadius: '6px', padding: '5px 10px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>Interested</button>
+                      )}
+                      {(s.outcome === 'pending' || s.outcome === 'interested') && (
+                        <button onClick={() => updateShowingOutcome(s.id, 'offer_made')} style={{ background: '#1A1100', color: GOLD, border: `1px solid ${GOLD}33`, borderRadius: '6px', padding: '5px 10px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>Offer Made</button>
+                      )}
+                      {s.outcome !== 'rented' && s.outcome !== 'not_interested' && (
+                        <button onClick={() => updateShowingOutcome(s.id, 'not_interested')} style={{ background: '#1F0D0D', color: '#f87171', border: '1px solid #f8717133', borderRadius: '6px', padding: '5px 10px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>Not Interested</button>
+                      )}
+                      {s.outcome === 'offer_made' && (
+                        <button onClick={() => updateShowingOutcome(s.id, 'rented')} style={{ background: '#0D1F0D', color: '#4ade80', border: '1px solid #4ade8033', borderRadius: '6px', padding: '5px 10px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>Mark as Rented ✓</button>
+                      )}
+                      <button onClick={() => deleteShowing(s.id)} style={{ background: 'transparent', color: '#333', border: 'none', cursor: 'pointer', fontSize: '16px', padding: '4px 6px', lineHeight: 1 }} title="Delete">✕</button>
+                    </div>
                   </div>
                 </div>
               )
