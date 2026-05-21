@@ -130,6 +130,27 @@ export default function PropertyDetailPage() {
   const [linkingTenant, setLinkingTenant] = useState(false)
   const [selectedTenantId, setSelectedTenantId] = useState('')
 
+  // Access items
+  type AccessItem = {
+    id: string
+    type: 'key' | 'access_card'
+    issued_to: string | null
+    issued_date: string | null
+    status: 'active' | 'lost' | 'returned'
+    security_company: string | null
+    notes: string | null
+  }
+  const [accessItems, setAccessItems] = useState<AccessItem[]>([])
+  const [showAddAccess, setShowAddAccess] = useState(false)
+  const [savingAccess, setSavingAccess] = useState(false)
+  const [accessForm, setAccessForm] = useState({
+    type: 'key',
+    issued_to: '',
+    issued_date: '',
+    security_company: '',
+    notes: '',
+  })
+
   // Handover
   const [activeHandover, setActiveHandover] = useState<{ id: string; type: string } | null>(null)
   const [startingHandover, setStartingHandover] = useState(false)
@@ -213,6 +234,46 @@ export default function PropertyDetailPage() {
     if (data) setAllTenants(data)
   }
 
+  const fetchAccessItems = async () => {
+    const { data } = await supabase
+      .from('access_items')
+      .select('*')
+      .eq('property_id', id)
+      .order('created_at', { ascending: false })
+    if (data) setAccessItems(data)
+  }
+
+  const addAccessItem = async () => {
+    setSavingAccess(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setSavingAccess(false); return }
+    const { data } = await supabase.from('access_items').insert({
+      user_id: user.id,
+      property_id: id,
+      type: accessForm.type,
+      issued_to: accessForm.issued_to || null,
+      issued_date: accessForm.issued_date || null,
+      security_company: accessForm.security_company || null,
+      notes: accessForm.notes || null,
+      status: 'active',
+    }).select().single()
+    if (data) setAccessItems(prev => [data, ...prev])
+    setAccessForm({ type: 'key', issued_to: '', issued_date: '', security_company: '', notes: '' })
+    setShowAddAccess(false)
+    setSavingAccess(false)
+  }
+
+  const updateAccessStatus = async (itemId: string, status: 'active' | 'lost' | 'returned') => {
+    await supabase.from('access_items').update({ status }).eq('id', itemId)
+    setAccessItems(prev => prev.map(i => i.id === itemId ? { ...i, status } : i))
+  }
+
+  const deleteAccessItem = async (itemId: string) => {
+    if (!confirm('Delete this item?')) return
+    await supabase.from('access_items').delete().eq('id', itemId)
+    setAccessItems(prev => prev.filter(i => i.id !== itemId))
+  }
+
   const fetchActiveHandover = async () => {
     const { data } = await supabase
       .from('handovers')
@@ -244,6 +305,7 @@ export default function PropertyDetailPage() {
   useEffect(() => {
     fetchProperty()
     fetchAllTenants()
+    fetchAccessItems()
     fetchActiveHandover()
   }, [id])
 
@@ -728,6 +790,123 @@ export default function PropertyDetailPage() {
                 </button>
               </div>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* Access Cards & Keys */}
+      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '28px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <div>
+            <h3 style={{ fontSize: '11px', fontWeight: '700', color: '#444', letterSpacing: '0.1em', margin: '0 0 4px 0' }}>ACCESS CARDS & KEYS</h3>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              {['active', 'lost', 'returned'].map(s => {
+                const count = accessItems.filter(i => i.status === s).length
+                const color = s === 'active' ? '#4ade80' : s === 'lost' ? '#f87171' : '#888'
+                return count > 0 ? (
+                  <span key={s} style={{ fontSize: '11px', color, fontWeight: '600' }}>
+                    {count} {s}
+                  </span>
+                ) : null
+              })}
+              {accessItems.length === 0 && <span style={{ fontSize: '12px', color: '#333' }}>No items recorded</span>}
+            </div>
+          </div>
+          <button
+            onClick={() => setShowAddAccess(v => !v)}
+            style={{ background: 'transparent', border: `1px solid ${BORDER}`, color: '#888', borderRadius: '6px', padding: '6px 14px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+          >
+            {showAddAccess ? 'Cancel' : '+ Add Item'}
+          </button>
+        </div>
+
+        {/* Add form */}
+        {showAddAccess && (
+          <div style={{ background: '#111', border: `1px solid ${BORDER}`, borderRadius: '10px', padding: '20px', marginBottom: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+              <div>
+                <label style={labelStyle}>Type</label>
+                <select value={accessForm.type} onChange={e => setAccessForm(f => ({ ...f, type: e.target.value }))} style={inputStyle}>
+                  <option value="key">🔑 Key</option>
+                  <option value="access_card">💳 Access Card</option>
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Issued To</label>
+                <input value={accessForm.issued_to} onChange={e => setAccessForm(f => ({ ...f, issued_to: e.target.value }))} placeholder="e.g. Tenant name, Agent" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Issued Date</label>
+                <input type="date" value={accessForm.issued_date} onChange={e => setAccessForm(f => ({ ...f, issued_date: e.target.value }))} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Security Company (for reorders)</label>
+                <input value={accessForm.security_company} onChange={e => setAccessForm(f => ({ ...f, security_company: e.target.value }))} placeholder="e.g. G4S, Transguard" style={inputStyle} />
+              </div>
+            </div>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={labelStyle}>Notes</label>
+              <input value={accessForm.notes} onChange={e => setAccessForm(f => ({ ...f, notes: e.target.value }))} placeholder="Any notes..." style={inputStyle} />
+            </div>
+            <button onClick={addAccessItem} disabled={savingAccess} style={{ background: GOLD, border: 'none', color: '#000', borderRadius: '6px', padding: '9px 20px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>
+              {savingAccess ? 'Saving...' : 'Save Item'}
+            </button>
+          </div>
+        )}
+
+        {/* Items list */}
+        {accessItems.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {accessItems.map(item => {
+              const statusColor = item.status === 'active' ? '#4ade80' : item.status === 'lost' ? '#f87171' : '#888'
+              const statusBg = item.status === 'active' ? '#0D1F0D' : item.status === 'lost' ? '#1F0D0D' : '#111'
+              const statusBorder = item.status === 'active' ? '#2a4a2a' : item.status === 'lost' ? '#4a2a2a' : '#222'
+              return (
+                <div key={item.id} style={{ background: '#111', border: `1px solid ${BORDER}`, borderRadius: '9px', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1 }}>
+                    <span style={{ fontSize: '20px' }}>{item.type === 'key' ? '🔑' : '💳'}</span>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                        <span style={{ fontSize: '13.5px', fontWeight: '600', color: '#F0F0F0' }}>
+                          {item.type === 'key' ? 'Key' : 'Access Card'}
+                        </span>
+                        <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '4px', background: statusBg, color: statusColor, border: `1px solid ${statusBorder}`, textTransform: 'uppercase' }}>
+                          {item.status}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#555' }}>
+                        {[
+                          item.issued_to && `Issued to: ${item.issued_to}`,
+                          item.issued_date && new Date(item.issued_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+                          item.security_company && `Security: ${item.security_company}`,
+                          item.notes,
+                        ].filter(Boolean).join(' · ')}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                    {item.status === 'active' && (
+                      <button onClick={() => updateAccessStatus(item.id, 'lost')} style={{ background: 'transparent', border: '1px solid #3a1a1a', color: '#f87171', borderRadius: '5px', padding: '5px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}>
+                        Lost
+                      </button>
+                    )}
+                    {item.status === 'lost' && (
+                      <button onClick={() => updateAccessStatus(item.id, 'active')} style={{ background: 'transparent', border: '1px solid #2a4a2a', color: '#4ade80', borderRadius: '5px', padding: '5px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}>
+                        Found
+                      </button>
+                    )}
+                    {item.status !== 'returned' && (
+                      <button onClick={() => updateAccessStatus(item.id, 'returned')} style={{ background: 'transparent', border: `1px solid ${BORDER}`, color: '#888', borderRadius: '5px', padding: '5px 10px', fontSize: '11px', cursor: 'pointer' }}>
+                        Returned
+                      </button>
+                    )}
+                    <button onClick={() => deleteAccessItem(item.id)} style={{ background: 'transparent', border: 'none', color: '#333', borderRadius: '5px', padding: '5px 8px', fontSize: '13px', cursor: 'pointer' }}>
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
