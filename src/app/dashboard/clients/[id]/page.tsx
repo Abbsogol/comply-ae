@@ -134,6 +134,21 @@ export default function TenantDetailPage() {
   const [infoForm, setInfoForm] = useState({ full_name: '', email: '', phone: '', nationality: '' })
   const [savingInfo, setSavingInfo] = useState(false)
 
+  // Pre-tenancy checks
+  type PreTenancyCheck = {
+    id: string | null
+    aecb_check: boolean
+    employment_verified: boolean
+    previous_landlord_ref: boolean
+    salary_verified: boolean
+    notes: string
+  }
+  const [checks, setChecks] = useState<PreTenancyCheck>({
+    id: null, aecb_check: false, employment_verified: false,
+    previous_landlord_ref: false, salary_verified: false, notes: '',
+  })
+  const [savingChecks, setSavingChecks] = useState(false)
+
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -159,6 +174,11 @@ export default function TenantDetailPage() {
       const { data: docs } = await supabase
         .from('documents').select('*').eq('client_id', data.id).order('created_at', { ascending: false })
       setDocuments(docs || [])
+
+      // pre-tenancy checks
+      const { data: checkData } = await supabase
+        .from('pre_tenancy_checks').select('*').eq('client_id', data.id).maybeSingle()
+      if (checkData) setChecks({ id: checkData.id, aecb_check: checkData.aecb_check, employment_verified: checkData.employment_verified, previous_landlord_ref: checkData.previous_landlord_ref, salary_verified: checkData.salary_verified, notes: checkData.notes || '' })
 
       setLoading(false)
     }
@@ -191,6 +211,28 @@ export default function TenantDetailPage() {
     setTenant({ ...tenant, ...infoForm })
     setEditingInfo(false)
     setSavingInfo(false)
+  }
+
+  const saveChecks = async (updated: PreTenancyCheck) => {
+    if (!tenant) return
+    setSavingChecks(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setSavingChecks(false); return }
+    const payload = { user_id: user.id, client_id: tenant.id, aecb_check: updated.aecb_check, employment_verified: updated.employment_verified, previous_landlord_ref: updated.previous_landlord_ref, salary_verified: updated.salary_verified, notes: updated.notes }
+    if (updated.id) {
+      await supabase.from('pre_tenancy_checks').update(payload).eq('id', updated.id)
+    } else {
+      const { data } = await supabase.from('pre_tenancy_checks').insert(payload).select().single()
+      if (data) setChecks(c => ({ ...c, id: data.id }))
+    }
+    setSavingChecks(false)
+  }
+
+  const toggleCheck = (field: keyof PreTenancyCheck) => {
+    if (field === 'id' || field === 'notes') return
+    const updated = { ...checks, [field]: !checks[field as keyof PreTenancyCheck] }
+    setChecks(updated)
+    saveChecks(updated)
   }
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -415,6 +457,53 @@ export default function TenantDetailPage() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Pre-Tenancy Checks */}
+        <div style={{ backgroundColor: '#0D0D0D', border: `1px solid ${BORDER}`, borderRadius: '12px', padding: '22px 24px', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px' }}>
+            <div>
+              <p style={{ color: '#444', fontSize: '11px', fontWeight: '600', letterSpacing: '0.06em', textTransform: 'uppercase', margin: '0 0 4px 0' }}>Pre-Tenancy Checks</p>
+              <p style={{ color: '#333', fontSize: '12px', margin: 0 }}>Al Etihad Credit Bureau (AECB) & background verification</p>
+            </div>
+            {savingChecks && <span style={{ color: '#444', fontSize: '11px' }}>Saving...</span>}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '18px' }}>
+            {[
+              { field: 'aecb_check' as const, label: 'AECB Credit Check Done', desc: 'Al Etihad Credit Bureau report obtained and reviewed' },
+              { field: 'employment_verified' as const, label: 'Employment Verified', desc: 'Employment letter or contract confirmed' },
+              { field: 'previous_landlord_ref' as const, label: 'Previous Landlord Reference', desc: 'Reference from prior landlord obtained' },
+              { field: 'salary_verified' as const, label: 'Salary / Income Verified', desc: 'Bank statements or salary certificate reviewed' },
+            ].map(item => (
+              <div
+                key={item.field}
+                onClick={() => toggleCheck(item.field)}
+                style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px 16px', background: checks[item.field] ? '#0D1A0D' : '#080808', border: `1px solid ${checks[item.field] ? '#2a4a2a' : BORDER}`, borderRadius: '8px', cursor: 'pointer', transition: 'all 0.15s' }}
+              >
+                <div style={{ width: '20px', height: '20px', borderRadius: '5px', border: `2px solid ${checks[item.field] ? '#4ade80' : '#333'}`, background: checks[item.field] ? '#4ade80' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {checks[item.field] && <span style={{ color: '#000', fontSize: '13px', fontWeight: '800', lineHeight: 1 }}>✓</span>}
+                </div>
+                <div>
+                  <p style={{ color: checks[item.field] ? '#4ade80' : '#888', fontSize: '13.5px', fontWeight: '600', margin: '0 0 2px 0' }}>{item.label}</p>
+                  <p style={{ color: '#333', fontSize: '12px', margin: 0 }}>{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div>
+            <p style={{ color: '#444', fontSize: '11px', fontWeight: '600', letterSpacing: '0.05em', textTransform: 'uppercase', margin: '0 0 8px 0' }}>Check Notes</p>
+            <textarea
+              value={checks.notes}
+              onChange={e => setChecks(c => ({ ...c, notes: e.target.value }))}
+              onBlur={() => saveChecks(checks)}
+              rows={2}
+              placeholder="e.g. AECB score: 720, employed at ADNOC since 2021..."
+              style={{ width: '100%', padding: '9px 12px', backgroundColor: '#080808', border: `1px solid ${BORDER}`, borderRadius: '6px', color: '#F5F5F5', fontSize: '13px', resize: 'vertical', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+            />
+            <p style={{ color: '#333', fontSize: '11px', margin: '5px 0 0 0' }}>Auto-saves when you click away. Upload the AECB report in the Documents section above.</p>
+          </div>
         </div>
 
         {/* Notes */}
